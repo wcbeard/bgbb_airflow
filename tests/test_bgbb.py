@@ -8,7 +8,7 @@ import pandas as pd
 from pytest import fixture
 
 # from mozetl.bgbb import fit_airflow_job as fit_job, pred_airflow_job as pred_job
-from bgbb_airflow import fit_airflow_job as fit_job, pred_airflow_job as pred_job
+from mozetl import fit_airflow_job as fit_job, pred_airflow_job as pred_job
 
 from bgbb.sql.sql_utils import S3_DAY_FMT, S3_DAY_FMT_DASH
 from pyspark.sql.types import StringType, StructField, StructType

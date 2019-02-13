@@ -2,16 +2,12 @@ from typing import Tuple
 
 import click
 import pandas as pd
+from bgbb import BGBB
+from bgbb.sql.sql_utils import (S3_DAY_FMT_DASH, reduce_rec_freq_spk,
+                                run_rec_freq_spk)
 from pyspark.sql import SparkSession
 
-from bgbb import BGBB
-
-from bgbb_airflow.bgbb_utils import PythonLiteralOption
-from bgbb.sql.sql_utils import (
-    S3_DAY_FMT_DASH,
-    reduce_rec_freq_spk,
-    run_rec_freq_spk,
-)
+from mozetl.bgbb_utils import PythonLiteralOption
 
 
 def extract(
