@@ -7,29 +7,28 @@ test_deps = [
     # 'pytest-timeout==1.3.3',
     # 'moto==1.3.6',
     # 'mock==2.0.0',
-    'pytest',
+    "pytest",
     # 'flake8==3.6.0'
 ]
 
-extras = {
-    'test': test_deps,
-}
+extras = {"test": test_deps}
 
 setup(
-    name='bgbb_airflow',
-    version='0.1.0',
-    description='Scripts to run airflow jobs using bgbb_lib',
-    author='W Chris Beard',
-    url='https://github.com/wcbeard/bgbb_airflow.git',
-    packages=find_packages(exclude=['tests']),
+    name="bgbb_airflow",
+    version="0.1.0",
+    description="Scripts to run airflow jobs using bgbb_lib",
+    author="W Chris Beard",
+    url="https://github.com/wcbeard/bgbb_airflow.git",
+    packages=find_packages(exclude=["tests"]),
     include_package_data=True,
     # TODO: pin versions?
     install_requires=[
-        'bgbb==0.1.3',
-        'click',
-        'pyarrow',
-        'pyspark',
-        'pytest',
+        "bgbb==0.1.3",
+        "numba==0.42.0",
+        "click",
+        "pyarrow",
+        "pyspark",
+        "pytest",
     ],
     tests_require=test_deps,
     extras_require=extras,
