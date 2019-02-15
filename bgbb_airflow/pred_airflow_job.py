@@ -7,7 +7,7 @@ from bgbb import BGBB
 from bgbb.sql.bgbb_udfs import mk_n_returns_udf, mk_p_alive_udf
 from bgbb.sql.sql_utils import run_rec_freq_spk
 
-from mozetl.bgbb_utils import PythonLiteralOption
+from bgbb_airflow.bgbb_utils import PythonLiteralOption
 
 
 def extract(spark, ho_start, model_win=90, sample_ids: List[int] = []):

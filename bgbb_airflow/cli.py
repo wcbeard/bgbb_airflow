@@ -1,6 +1,6 @@
 import click
 
-from mozetl import (
+from bgbb_airflow import (
     fit_airflow_job as bgbb_fit_job,
     pred_airflow_job as bgbb_pred_job,
 )
