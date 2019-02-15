@@ -1,4 +1,6 @@
-#!/usr/bin/env python2
+
+# abcs
+# !/usr/bin/env python2
 
 import argparse
 import http.client
@@ -29,7 +31,8 @@ def generate_runner(module_name, instance, token):
     logging.debug(dedent(runner_data))
 
     request = {
-        "contents": b64encode(dedent(runner_data)),
+        # "contents": dedent(runner_data),
+        "contents": b64encode(dedent(runner_data).encode('utf-8')).decode('ascii'),
         "overwrite": True,
         "path": "/FileStore/airflow/{module}_runner.py".format(module=module_name),
     }
@@ -59,7 +62,7 @@ def run_submit(args):
             },
         },
         "spark_python_task": {
-            "python_file": "dbfs:/FileStore/airflow/{module}_runner.py".format(args.module_name),
+            "python_file": "dbfs:/FileStore/airflow/{module}_runner.py".format(module=args.module_name),
             "parameters": args.command,
         },
         "libraries": {
@@ -79,7 +82,7 @@ def run_submit(args):
     logging.debug(json.dumps(config, indent=2))
 
     # https://docs.databricks.com/api/latest/jobs.html#runs-submit
-    conn = http.client.HTTPSConnection(instance)
+    conn = http.client.HTTPSConnection(args.instance)
     headers = {
         "Authorization": "Bearer {token}".format(token=args.token),
         "Content-Type": "application/json",
