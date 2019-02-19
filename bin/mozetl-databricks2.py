@@ -1,14 +1,14 @@
-
 # abcs
 # !/usr/bin/env python2
 
 import argparse
-import http.client
-import os
 import json
 import logging
+import os
 from base64 import b64encode
 from textwrap import dedent
+
+from six.moves import http_client
 
 
 def generate_runner(module_name, instance, token):
@@ -32,12 +32,16 @@ def generate_runner(module_name, instance, token):
 
     request = {
         # "contents": dedent(runner_data),
-        "contents": b64encode(dedent(runner_data).encode('utf-8')).decode('ascii'),
+        "contents": b64encode(dedent(runner_data).encode("utf-8")).decode(
+            "ascii"
+        ),
         "overwrite": True,
-        "path": "/FileStore/airflow/{module}_runner.py".format(module=module_name),
+        "path": "/FileStore/airflow/{module}_runner.py".format(
+            module=module_name
+        ),
     }
     logging.debug(json.dumps(request, indent=2))
-    conn = http.client.HTTPSConnection(instance)
+    conn = http_client.HTTPSConnection(instance)
     headers = {
         "Authorization": "Bearer {token}".format(token=token),
         "Content-Type": "application/json",
@@ -62,7 +66,9 @@ def run_submit(args):
             },
         },
         "spark_python_task": {
-            "python_file": "dbfs:/FileStore/airflow/{module}_runner.py".format(module=args.module_name),
+            "python_file": "dbfs:/FileStore/airflow/{module}_runner.py".format(
+                module=args.module_name
+            ),
             "parameters": args.command,
         },
         "libraries": {
@@ -82,12 +88,14 @@ def run_submit(args):
     logging.debug(json.dumps(config, indent=2))
 
     # https://docs.databricks.com/api/latest/jobs.html#runs-submit
-    conn = http.client.HTTPSConnection(args.instance)
+    conn = http_client.HTTPSConnection(args.instance)
     headers = {
         "Authorization": "Bearer {token}".format(token=args.token),
         "Content-Type": "application/json",
     }
-    conn.request("POST", "/api/2.0/jobs/runs/submit", json.dumps(config), headers)
+    conn.request(
+        "POST", "/api/2.0/jobs/runs/submit", json.dumps(config), headers
+    )
     resp = conn.getresponse()
     logging.info("status: {} reason: {}".format(resp.status, resp.reason))
     logging.info(resp.read())
@@ -103,7 +111,10 @@ def parse_arguments():
         help="The URL to the git repository e.g. https://github.com/mozilla/python_mozetl.git",
     )
     parser.add_argument(
-        "--git-branch", type=str, default="master", help="The branch to run e.g. master"
+        "--git-branch",
+        type=str,
+        default="master",
+        help="The branch to run e.g. master",
     )
     parser.add_argument(
         "--num-workers",
@@ -131,7 +142,10 @@ def parse_arguments():
         help="The Databricks instance.",
     )
     parser.add_argument(
-        "--module-name", type=str, default="mozetl", help="Top-level module name to run"
+        "--module-name",
+        type=str,
+        default="mozetl",
+        help="Top-level module name to run",
     )
     parser.add_argument(
         "command", nargs=argparse.REMAINDER, help="Arguments to pass to mozetl"
