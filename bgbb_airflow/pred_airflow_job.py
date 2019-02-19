@@ -83,6 +83,6 @@ def main(submission_date, model_win, sample_ids, model_params, bucket, prefix):
     df = extract(
         spark, submission_date, model_win=model_win, sample_ids=sample_ids
     )
-    df2 = transform(df, model_params, return_preds=[7, 14, 21, 30])
+    df2 = transform(df, model_params, return_preds=[7, 14, 21, 28])
     save(submission_date, bucket, prefix, df2)
     print("Success!")
