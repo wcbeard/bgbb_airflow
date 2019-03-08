@@ -14,8 +14,10 @@ def pull_most_recent_params(spark):
     pars_loc = (
         "s3://net-mozaws-prod-us-west-2-pipeline-analysis/wbeard/bgbb_params/"
     )
+    print("Reading params from {}".format(pars_loc))
     spars = spark.read.parquet(pars_loc)
     pars_df = spars.orderBy(spars.submission_date_s3.desc()).limit(1).toPandas()
+    print("Using params: \n{}".format(pars_df))
     return pars_df
 
 
@@ -32,7 +34,7 @@ def extract(spark, ho_start, model_win=90, sample_ids: Tuple[int] = ()):
     # Hopefully not too far off from something like
     # [0.825, 0.68, 0.0876, 1.385]
     pars_df = pull_most_recent_params(spark=spark)
-    abgd_params = pars_df[['alpha', 'beta', 'gamma', 'delta']].iloc[0].tolist()
+    abgd_params = pars_df[["alpha", "beta", "gamma", "delta"]].iloc[0].tolist()
     return df, abgd_params
 
 
@@ -66,6 +68,7 @@ def save(submission_date, bucket, prefix, df):
     path = "s3://{}/{}/submission_date_s3={}".format(
         bucket, prefix, submission_date
     )
+    print("Saving to {}".format(path))
     (
         df.write
         # .partitionBy("namespace", "doc_type", "doc_version")

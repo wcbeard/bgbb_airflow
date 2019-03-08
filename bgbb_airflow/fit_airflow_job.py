@@ -68,6 +68,7 @@ def save(submission_date, bucket, prefix, params_df):
     path = "s3://{}/{}/submission_date_s3={}".format(
         bucket, prefix, submission_date
     )
+    print('Saving to: {}'.format(path))
     (params_df.repartition(1).write.parquet(path, mode="overwrite"))
 
 
