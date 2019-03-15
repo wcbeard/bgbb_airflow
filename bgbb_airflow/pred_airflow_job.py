@@ -1,19 +1,21 @@
-from typing import List, Tuple
+from os.path import join
+from typing import List, Tuple, Union
 
 import click
-from pyspark.sql import SparkSession
-
 from bgbb import BGBB
 from bgbb.sql.bgbb_udfs import mk_n_returns_udf, mk_p_alive_udf
 from bgbb.sql.sql_utils import run_rec_freq_spk
+from pyspark.sql import SparkSession
 
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 
+default_bucket = "s3://net-mozaws-prod-us-west-2-pipeline-analysis"
+default_prefix = "wbeard/bgbb_params"
 
-def pull_most_recent_params(spark):
-    pars_loc = (
-        "s3://net-mozaws-prod-us-west-2-pipeline-analysis/wbeard/bgbb_params/"
-    )
+
+def pull_most_recent_params(
+    spark, pars_loc=join(default_bucket, default_prefix)
+):
     print("Reading params from {}".format(pars_loc))
     spars = spark.read.parquet(pars_loc)
     pars_df = spars.orderBy(spars.submission_date_s3.desc()).limit(1).toPandas()
@@ -21,7 +23,9 @@ def pull_most_recent_params(spark):
     return pars_df
 
 
-def extract(spark, ho_start, model_win=90, sample_ids: Tuple[int] = ()):
+def extract(
+    spark, ho_start, model_win=90, sample_ids: Union[Tuple, List[int]] = ()
+):
     "TODO: increase ho_win to evaluate model performance"
     df, q = run_rec_freq_spk(
         ho_win=1,
@@ -65,9 +69,7 @@ def transform(df, bgbb_params, return_preds=(14,)):
 
 
 def save(submission_date, bucket, prefix, df):
-    path = "s3://{}/{}/submission_date_s3={}".format(
-        bucket, prefix, submission_date
-    )
+    path = join(bucket, prefix, "submission_date_s3={}".format(submission_date))
     print("Saving to {}".format(path))
     (
         df.write
@@ -85,10 +87,8 @@ def save(submission_date, bucket, prefix, df):
     default="[]",
     help="List of integer sample ids or None",
 )
-@click.option(
-    "--bucket", type=str, default="net-mozaws-prod-us-west-2-pipeline-analysis"
-)
-@click.option("--prefix", type=str, default="wbeard/bgbb_preds")
+@click.option("--bucket", type=str, default=default_bucket)
+@click.option("--prefix", type=str, default=default_prefix)
 def main(submission_date, model_win, sample_ids, bucket, prefix):
     spark = SparkSession.builder.getOrCreate()
 
