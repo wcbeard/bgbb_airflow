@@ -10,11 +10,11 @@ from pyspark.sql import SparkSession
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 
 default_bucket = "s3://net-mozaws-prod-us-west-2-pipeline-analysis"
-default_prefix = "wbeard/bgbb_params"
+default_prefix = "wbeard/bgbb_preds"
 
 
 def pull_most_recent_params(
-    spark, pars_loc=join(default_bucket, default_prefix)
+    spark, pars_loc=join(default_bucket, "wbeard/bgbb_params")
 ):
     print("Reading params from {}".format(pars_loc))
     spars = spark.read.parquet(pars_loc)
