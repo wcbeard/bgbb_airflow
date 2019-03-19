@@ -11,7 +11,7 @@ python bin/mozetl-databricks.py \
 	bgbb_pred \
 		--submission-date "2019-02-15" \
         --model-win 120 \
+        --sample-ids "[0]"
         # --model-params '[0.825,0.68,0.0876,1.385]' \
-        # --sample-ids "[0]"
 
 # Example logs at https://pastebin.com/3wRT4SWT
