@@ -2,16 +2,15 @@ import datetime as dt
 from functools import partial
 from itertools import count
 
-
 import numpy.random as nr
 import pandas as pd
+from bgbb.sql.sql_utils import S3_DAY_FMT, S3_DAY_FMT_DASH
+from pandas import DataFrame
+from pyspark.sql.types import StringType, StructField, StructType
 from pytest import fixture
 
-# from mozetl.bgbb import fit_airflow_job as fit_job, pred_airflow_job as pred_job
-from bgbb_airflow import fit_airflow_job as fit_job, pred_airflow_job as pred_job
-
-from bgbb.sql.sql_utils import S3_DAY_FMT, S3_DAY_FMT_DASH
-from pyspark.sql.types import StringType, StructField, StructType
+from bgbb_airflow import fit_airflow_job as fit_job
+from bgbb_airflow import pred_airflow_job as pred_job
 
 MODEL_WINDOW = 90
 HO_WINDOW = 10
@@ -117,13 +116,34 @@ def create_clients_daily_table(spark, dataframe_factory):
     gen_clients_daily(N_CLIENTS_IN_SAMPLE)
 
 
+@fixture(autouse=True)
+def mock_external_params(monkeypatch):
+    def mocked_pars(spark, param_bucket, param_prefix):
+        pars_df = DataFrame(
+            {
+                "alpha": [0.825],
+                "beta": [0.68],
+                "gamma": [0.0876],
+                "delta": [1.385],
+            }
+        )
+        return pars_df
+
+    monkeypatch.setattr(pred_job, "pull_most_recent_params", mocked_pars)
+
+
 @fixture
 def rfn(spark, create_clients_daily_table):
     create_clients_daily_table
-    rfn = pred_job.extract(
-        spark, model_win=MODEL_WINDOW, ho_start=HO_START.date(), sample_ids=[1]
+    rfn_sdf, pars = pred_job.extract(
+        spark,
+        param_bucket="dummy_bucket",
+        param_prefix="dummy_prefix",
+        model_win=MODEL_WINDOW,
+        ho_start=HO_START.date(),
+        sample_ids=[1],
     )
-    rfn2 = pred_job.transform(rfn, return_preds=[7, 14])
+    rfn2 = pred_job.transform(rfn_sdf, pars, return_preds=[7, 14])
     return rfn2
 
 

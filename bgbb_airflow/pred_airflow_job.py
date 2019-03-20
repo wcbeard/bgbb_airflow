@@ -1,28 +1,56 @@
-from typing import List
+from os.path import join
+from typing import List, Tuple, Union
 
 import click
-from pyspark.sql import SparkSession
-
 from bgbb import BGBB
 from bgbb.sql.bgbb_udfs import mk_n_returns_udf, mk_p_alive_udf
 from bgbb.sql.sql_utils import run_rec_freq_spk
+from pyspark.sql import SparkSession
 
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 
+default_pred_bucket = "s3://net-mozaws-prod-us-west-2-pipeline-analysis"
+default_pred_prefix = "wbeard/bgbb_preds"
+default_param_bucket = default_pred_bucket
+default_param_prefix = "wbeard/bgbb_params"
 
-def extract(spark, ho_start, model_win=90, sample_ids: List[int] = []):
+
+def pull_most_recent_params(spark, param_bucket, param_prefix):
+    pars_loc = join(param_bucket, param_prefix)
+    print("Reading params from {}".format(pars_loc))
+    spars = spark.read.parquet(pars_loc)
+    pars_df = spars.orderBy(spars.submission_date_s3.desc()).limit(1).toPandas()
+    print("Using params: \n{}".format(pars_df))
+    return pars_df
+
+
+def extract(
+    spark,
+    ho_start,
+    param_bucket,
+    param_prefix,
+    model_win=90,
+    sample_ids: Union[Tuple, List[int]] = (),
+):
     "TODO: increase ho_win to evaluate model performance"
     df, q = run_rec_freq_spk(
         ho_win=1,
         model_win=model_win,
         ho_start=ho_start,
-        sample_ids=sample_ids,
+        sample_ids=list(sample_ids),
         spark=spark,
     )
-    return df
+
+    # Hopefully not too far off from something like
+    # [0.825, 0.68, 0.0876, 1.385]
+    pars_df = pull_most_recent_params(
+        spark=spark, param_bucket=param_bucket, param_prefix=param_prefix
+    )
+    abgd_params = pars_df[["alpha", "beta", "gamma", "delta"]].iloc[0].tolist()
+    return df, abgd_params
 
 
-def transform(df, bgbb_params=[0.825, 0.68, 0.0876, 1.385], return_preds=[14]):
+def transform(df, bgbb_params, return_preds=(14,)):
     """
     @return_preds: for each integer value `n`, make predictions
     for how many times a client is expected to return in the next `n`
@@ -48,10 +76,13 @@ def transform(df, bgbb_params=[0.825, 0.68, 0.0876, 1.385], return_preds=[14]):
     return df2
 
 
-def save(submission_date, bucket, prefix, df):
-    path = "s3://{}/{}/submission_date_s3={}".format(
-        bucket, prefix, submission_date
+def save(submission_date, pred_bucket, pred_prefix, df):
+    path = join(
+        pred_bucket,
+        pred_prefix,
+        "submission_date_s3={}".format(submission_date),
     )
+    print("Saving to {}".format(path))
     (
         df.write
         # .partitionBy("namespace", "doc_type", "doc_version")
@@ -68,21 +99,34 @@ def save(submission_date, bucket, prefix, df):
     default="[]",
     help="List of integer sample ids or None",
 )
-@click.option(
-    "--model-params",
-    cls=PythonLiteralOption,
-    # default='[0.825, 0.68, 0.0876, 1.385]'
-)
-@click.option(
-    "--bucket", type=str, default="net-mozaws-prod-us-west-2-pipeline-analysis"
-)
-@click.option("--prefix", type=str, default="wbeard/bgbb_preds")
-def main(submission_date, model_win, sample_ids, model_params, bucket, prefix):
+@click.option("--pred-bucket", type=str, default=default_pred_bucket)
+@click.option("--pred-prefix", type=str, default=default_pred_prefix)
+@click.option("--param-bucket", type=str, default=default_param_bucket)
+@click.option("--param-prefix", type=str, default=default_param_prefix)
+def main(
+    submission_date,
+    model_win,
+    sample_ids,
+    pred_bucket,
+    pred_prefix,
+    param_bucket,
+    param_prefix,
+):
     spark = SparkSession.builder.getOrCreate()
 
-    df = extract(
-        spark, submission_date, model_win=model_win, sample_ids=sample_ids
+    df, abgd_params = extract(
+        spark,
+        submission_date,
+        param_bucket=param_bucket,
+        param_prefix=param_prefix,
+        model_win=model_win,
+        sample_ids=sample_ids,
     )
-    df2 = transform(df, model_params, return_preds=[7, 14, 21, 28])
-    save(submission_date, bucket, prefix, df2)
+    df2 = transform(df, abgd_params, return_preds=[7, 14, 21, 28])
+    save(
+        submission_date,
+        pred_bucket=pred_bucket,
+        pred_prefix=pred_prefix,
+        df=df2,
+    )
     print("Success!")

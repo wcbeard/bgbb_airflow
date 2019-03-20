@@ -10,6 +10,9 @@ from pyspark.sql import SparkSession
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 
 
+default_param_prefix = "wbeard/bgbb_params"
+
+
 def extract(
     ho_start: "YYYY-MM-dd",
     spark,
@@ -68,6 +71,7 @@ def save(submission_date, bucket, prefix, params_df):
     path = "s3://{}/{}/submission_date_s3={}".format(
         bucket, prefix, submission_date
     )
+    print('Saving to: {}'.format(path))
     (params_df.repartition(1).write.parquet(path, mode="overwrite"))
 
 
@@ -90,7 +94,7 @@ def save(submission_date, bucket, prefix, params_df):
 @click.option(
     "--bucket", type=str, default="net-mozaws-prod-us-west-2-pipeline-analysis"
 )
-@click.option("--prefix", type=str, default="wbeard/bgbb_params")
+@click.option("--prefix", type=str, default=default_param_prefix)
 def main(
     submission_date,
     model_win,

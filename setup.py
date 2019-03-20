@@ -29,6 +29,7 @@ setup(
         "pyarrow",
         "pyspark",
         "pytest",
+        "six",
     ],
     tests_require=test_deps,
     extras_require=extras,

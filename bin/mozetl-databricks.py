@@ -1,13 +1,62 @@
 #!/usr/bin/env python2
 
 import argparse
-import http.client
 import os
 import json
 import logging
+from base64 import b64encode
+from textwrap import dedent
+
+try:
+    from urllib.request import urlopen, Request
+except ImportError:
+    from urllib2 import urlopen, Request
 
 
-def run_submit(args, instance="dbc-caf9527b-e073.cloud.databricks.com"):
+def api_request(instance, route, data, token):
+    api_endpoint = "https://{instance}/{route}".format(
+        instance=instance, route=route.lstrip("/")
+    )
+    headers = {
+        "Authorization": "Bearer {token}".format(token=token),
+        "Content-Type": "application/json",
+    }
+    req = Request(api_endpoint, data=data.encode(), headers=headers)
+    resp = urlopen(req)
+    logging.info("status: {} info: {}".format(resp.getcode(), resp.info()))
+    return resp
+
+
+def generate_runner(module_name, instance, token):
+    """Generate a runner for the current module to be run in Databricks."""
+
+    runner_data = """
+    # This runner has been auto-generated from mozilla/python_mozetl/bin/mozetl-databricks.py.
+    # Any changes made to the runner file will be over-written on subsequent runs.
+    from {module} import cli
+
+    try:
+        cli.entry_point(auto_envvar_prefix="MOZETL")
+    except SystemExit:
+        # avoid calling sys.exit() in databricks
+        # http://click.palletsprojects.com/en/7.x/api/?highlight=auto_envvar_prefix#click.BaseCommand.main
+        pass
+    """.format(
+        module=module_name
+    )
+    logging.debug(dedent(runner_data))
+
+    request = {
+        "contents": b64encode(dedent(runner_data).encode()).decode(),
+        "overwrite": True,
+        "path": "/FileStore/airflow/{module}_runner.py".format(module=module_name),
+    }
+    logging.debug(json.dumps(request, indent=2))
+    resp = api_request(instance, "/api/2.0/dbfs/put", json.dumps(request), token)
+    logging.info(resp.read())
+
+
+def run_submit(args):
     config = {
         "run_name": "mozetl local submission",
         "new_cluster": {
@@ -20,7 +69,9 @@ def run_submit(args, instance="dbc-caf9527b-e073.cloud.databricks.com"):
             },
         },
         "spark_python_task": {
-            "python_file": "s3://telemetry-airflow/steps/mozetl_runner.py",
+            "python_file": "dbfs:/FileStore/airflow/{module}_runner.py".format(
+                module=args.module_name
+            ),
             "parameters": args.command,
         },
         "libraries": {
@@ -40,16 +91,10 @@ def run_submit(args, instance="dbc-caf9527b-e073.cloud.databricks.com"):
     logging.debug(json.dumps(config, indent=2))
 
     # https://docs.databricks.com/api/latest/jobs.html#runs-submit
-    conn = http.client.HTTPSConnection(instance)
-    headers = {
-        "Authorization": "Bearer {token}".format(token=args.token),
-        "Content-Type": "application/json",
-    }
-    conn.request("POST", "/api/2.0/jobs/runs/submit", json.dumps(config), headers)
-    resp = conn.getresponse()
-    logging.info("status: {} reason: {}".format(resp.status, resp.reason))
+    resp = api_request(
+        args.instance, "/api/2.0/jobs/runs/submit", json.dumps(config), args.token
+    )
     logging.info(resp.read())
-    resp.close()
 
 
 def parse_arguments():
@@ -83,6 +128,15 @@ def parse_arguments():
         help="A Databricks authorization token, generated from the user settings page",
     )
     parser.add_argument(
+        "--instance",
+        type=str,
+        default="dbc-caf9527b-e073.cloud.databricks.com",
+        help="The Databricks instance.",
+    )
+    parser.add_argument(
+        "--module-name", type=str, default="mozetl", help="Top-level module name to run"
+    )
+    parser.add_argument(
         "command", nargs=argparse.REMAINDER, help="Arguments to pass to mozetl"
     )
     args = parser.parse_args()
@@ -93,4 +147,5 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.DEBUG)
 
     args = parse_arguments()
+    generate_runner(args.module_name, args.instance, args.token)
     run_submit(args)
