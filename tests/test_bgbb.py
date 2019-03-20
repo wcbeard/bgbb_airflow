@@ -118,7 +118,7 @@ def create_clients_daily_table(spark, dataframe_factory):
 
 @fixture(autouse=True)
 def mock_external_params(monkeypatch):
-    def mocked_pars(spark):
+    def mocked_pars(spark, param_bucket, param_prefix):
         pars_df = DataFrame(
             {
                 "alpha": [0.825],
@@ -136,7 +136,12 @@ def mock_external_params(monkeypatch):
 def rfn(spark, create_clients_daily_table):
     create_clients_daily_table
     rfn_sdf, pars = pred_job.extract(
-        spark, model_win=MODEL_WINDOW, ho_start=HO_START.date(), sample_ids=[1]
+        spark,
+        param_bucket="dummy_bucket",
+        param_prefix="dummy_prefix",
+        model_win=MODEL_WINDOW,
+        ho_start=HO_START.date(),
+        sample_ids=[1],
     )
     rfn2 = pred_job.transform(rfn_sdf, pars, return_preds=[7, 14])
     return rfn2
