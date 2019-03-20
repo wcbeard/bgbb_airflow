@@ -11,7 +11,11 @@ python bin/mozetl-databricks.py \
 	bgbb_pred \
 		--submission-date "2019-02-15" \
         --model-win 120 \
-        --sample-ids "[0]"
+        --sample-ids "[0]" \
+		--pred-bucket "s3://net-mozaws-prod-us-west-2-pipeline-analysis" \
+		--pred-prefix "wbeard/bgbb_preds" \
+		--param-bucket "s3://net-mozaws-prod-us-west-2-pipeline-analysis" \
+		--param-prefix "wbeard/bgbb_params"
         # --model-params '[0.825,0.68,0.0876,1.385]' \
 
 # Example logs at https://pastebin.com/3wRT4SWT
