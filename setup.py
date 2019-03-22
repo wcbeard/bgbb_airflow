@@ -23,8 +23,8 @@ setup(
     include_package_data=True,
     # TODO: pin versions?
     install_requires=[
-        "bgbb==0.1.3",
-        "numba==0.42.0",
+        "bgbb==0.1.4a1",
+        "numba>=0.34",
         "click",
         "pyarrow",
         "pyspark",

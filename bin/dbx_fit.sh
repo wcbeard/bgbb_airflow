@@ -3,7 +3,7 @@ DBX_TOKEN=`cat ~/dbx_token.txt`
 echo `which python`
 python bin/mozetl-databricks.py \
 	--git-path https://github.com/wcbeard/bgbb_airflow.git \
-	--git-branch read_params \
+	--git-branch samp_id \
 	--python 3 \
 	--num-workers 5 \
 	--token $DBX_TOKEN  \

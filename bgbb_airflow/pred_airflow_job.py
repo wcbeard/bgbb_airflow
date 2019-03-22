@@ -9,6 +9,7 @@ from pyspark.sql import SparkSession
 
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 
+
 default_pred_bucket = "s3://net-mozaws-prod-us-west-2-pipeline-analysis"
 default_pred_prefix = "wbeard/bgbb_preds"
 default_param_bucket = default_pred_bucket
@@ -85,7 +86,7 @@ def save(submission_date, pred_bucket, pred_prefix, df):
     print("Saving to {}".format(path))
     (
         df.write
-        # .partitionBy("namespace", "doc_type", "doc_version")
+        .partitionBy("sample_id")
         .parquet(path, mode="overwrite")
     )
 
