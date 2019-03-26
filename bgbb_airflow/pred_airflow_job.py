@@ -2,12 +2,15 @@ from os.path import join
 from typing import List, Tuple, Union
 
 import click
+import pandas as pd
 from bgbb import BGBB
-from bgbb.sql.bgbb_udfs import mk_n_returns_udf, mk_p_alive_udf
+from bgbb.sql.bgbb_udfs import add_p_th, mk_n_returns_udf, mk_p_alive_udf
 from bgbb.sql.sql_utils import run_rec_freq_spk
 from pyspark.sql import SparkSession
 
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
+
+pd.options.display.max_columns = 20
 
 
 default_pred_bucket = "s3://net-mozaws-prod-us-west-2-pipeline-analysis"
@@ -74,21 +77,21 @@ def transform(df, bgbb_params, return_preds=(14,)):
     df2 = df.withColumn("P_alive", p_alive(df.Frequency, df.Recency, df.N))
     for days, udf in n_returns_udfs:
         df2 = df2.withColumn(days, udf(df.Frequency, df.Recency, df.N))
+    df2 = add_p_th(bgbb, dfs=df2, fcol="Frequency", rcol="Recency", ncol="N")
     return df2
 
 
-def save(submission_date, pred_bucket, pred_prefix, df):
+def save(spark, submission_date, pred_bucket, pred_prefix, df):
     path = join(
         pred_bucket,
         pred_prefix,
         "submission_date_s3={}".format(submission_date),
     )
-    print("Saving to {}".format(path))
-    (
-        df.write
-        .partitionBy("sample_id")
-        .parquet(path, mode="overwrite")
-    )
+    print("Saving to {}...".format(path))
+    (df.write.partitionBy("sample_id").parquet(path, mode="overwrite"))
+    print("Done writing")
+    df_out = spark.read.parquet(path).limit(5).toPandas()
+    print('Sample of written data:\n', df_out)
 
 
 @click.command("bgbb_pred")
@@ -125,6 +128,7 @@ def main(
     )
     df2 = transform(df, abgd_params, return_preds=[7, 14, 21, 28])
     save(
+        spark,
         submission_date,
         pred_bucket=pred_bucket,
         pred_prefix=pred_prefix,
