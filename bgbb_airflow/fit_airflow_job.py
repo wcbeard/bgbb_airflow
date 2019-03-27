@@ -3,8 +3,11 @@ from typing import Tuple
 import click
 import pandas as pd
 from bgbb import BGBB
-from bgbb.sql.sql_utils import (S3_DAY_FMT_DASH, reduce_rec_freq_spk,
-                                run_rec_freq_spk)
+from bgbb.sql.sql_utils import (
+    S3_DAY_FMT_DASH,
+    reduce_rec_freq_spk,
+    run_rec_freq_spk,
+)
 from pyspark.sql import SparkSession
 
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
@@ -14,7 +17,7 @@ default_param_prefix = "wbeard/bgbb_params"
 
 
 def extract(
-    ho_start: "YYYY-MM-dd",
+    ho_start: "YYYY-MM-dd",  # noqa: F821
     spark,
     ho_win=7,
     model_win=120,
@@ -71,7 +74,7 @@ def save(submission_date, bucket, prefix, params_df):
     path = "s3://{}/{}/submission_date_s3={}".format(
         bucket, prefix, submission_date
     )
-    print('Saving to: {}'.format(path))
+    print("Saving to: {}".format(path))
     (params_df.repartition(1).write.parquet(path, mode="overwrite"))
 
 

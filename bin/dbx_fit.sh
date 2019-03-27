@@ -9,11 +9,11 @@ python bin/mozetl-databricks.py \
 	--token $DBX_TOKEN  \
 	--module-name bgbb_airflow \
 	bgbb_fit \
-		--submission-date "2019-03-01" \
+		--submission-date "2019-03-19" \
         --start-params '[0.825,0.68,0.0876,1.385]' \
 		--sample-fraction 0.05
 
 
 
-# Fit  https://pastebin.com/BvNsVYBg
-# Pred https://pastebin.com/euE69Q52
+# Fit  https://pastebin.com/HQbP191K
+# Pred https://pastebin.com/N7jyEmJE

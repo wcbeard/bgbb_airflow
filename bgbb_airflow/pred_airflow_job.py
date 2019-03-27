@@ -1,3 +1,4 @@
+import datetime as dt
 from os.path import join
 from typing import Dict, List, Tuple, Union
 
@@ -5,14 +6,14 @@ import click
 import pandas as pd
 from bgbb import BGBB
 from bgbb.sql.bgbb_udfs import add_p_th, mk_n_returns_udf, mk_p_alive_udf
-from bgbb.sql.sql_utils import run_rec_freq_spk
+from bgbb.sql.sql_utils import run_rec_freq_spk, S3_DAY_FMT_DASH
 from pyspark.sql import SparkSession
 
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 
 pd.options.display.max_columns = 20
 pd.options.display.width = 120
-
+Dash_str = str
 
 default_pred_bucket = "s3://net-mozaws-prod-us-west-2-pipeline-analysis"
 default_pred_prefix = "wbeard/active_profiles"
@@ -20,28 +21,39 @@ default_param_bucket = default_pred_bucket
 default_param_prefix = "wbeard/bgbb_params"
 
 
-def pull_most_recent_params(spark, param_bucket, param_prefix):
+def pull_most_recent_params(spark, max_sub_date, param_bucket, param_prefix):
     pars_loc = join(param_bucket, param_prefix)
     print("Reading params from {}".format(pars_loc))
     spars = spark.read.parquet(pars_loc)
-    pars_df = spars.orderBy(spars.submission_date_s3.desc()).limit(1).toPandas()
+    pars_df = (
+        spars.filter(spars.submission_date_s3 <= max_sub_date)
+        .orderBy(spars.submission_date_s3.desc())
+        .limit(1)
+        .toPandas()
+    )
     print("Using params: \n{}".format(pars_df))
     return pars_df
 
 
 def extract(
     spark,
-    ho_start,
+    sub_date: Dash_str,
     param_bucket,
     param_prefix,
     model_win=90,
     sample_ids: Union[Tuple, List[int]] = (),
 ):
     "TODO: increase ho_win to evaluate model performance"
+
+    holdout_start_dt = dt.datetime.strptime(
+        sub_date, S3_DAY_FMT_DASH
+    ) + dt.timedelta(days=1)
+    holdout_start = holdout_start_dt.strftime(S3_DAY_FMT_DASH)
+
     df, q = run_rec_freq_spk(
         ho_win=1,
         model_win=model_win,
-        ho_start=ho_start,
+        ho_start=holdout_start,
         sample_ids=list(sample_ids),
         spark=spark,
     )
@@ -49,7 +61,10 @@ def extract(
     # Hopefully not too far off from something like
     # [0.825, 0.68, 0.0876, 1.385]
     pars_df = pull_most_recent_params(
-        spark=spark, param_bucket=param_bucket, param_prefix=param_prefix
+        spark=spark,
+        max_sub_date=sub_date,
+        param_bucket=param_bucket,
+        param_prefix=param_prefix,
     )
     abgd_params = pars_df[["alpha", "beta", "gamma", "delta"]].iloc[0].tolist()
     return df, abgd_params
@@ -137,7 +152,7 @@ def main(
 
     df, abgd_params = extract(
         spark,
-        submission_date,
+        sub_date=submission_date,
         param_bucket=param_bucket,
         param_prefix=param_prefix,
         model_win=model_win,

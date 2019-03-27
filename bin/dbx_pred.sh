@@ -9,9 +9,9 @@ python bin/mozetl-databricks.py \
 	--token $DBX_TOKEN  \
 	--module-name bgbb_airflow \
 	bgbb_pred \
-		--submission-date "2019-03-26" \
+		--submission-date "2019-03-19" \
         --model-win 90 \
-        --sample-ids "None" \
+        --sample-ids "[42]" \
 		--pred-bucket "s3://net-mozaws-prod-us-west-2-pipeline-analysis" \
 		--pred-prefix "wbeard/active_profiles" \
 		--param-bucket "s3://net-mozaws-prod-us-west-2-pipeline-analysis" \

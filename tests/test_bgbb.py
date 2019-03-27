@@ -16,6 +16,7 @@ MODEL_WINDOW = 90
 HO_WINDOW = 10
 MODEL_START = pd.to_datetime("2018-10-10")
 HO_START = MODEL_START + dt.timedelta(days=MODEL_WINDOW)
+MODEL_LAST_DAY = HO_START - dt.timedelta(days=1)
 HO_ENDp1 = HO_START + dt.timedelta(days=HO_WINDOW + 1)
 day_range = pd.date_range(MODEL_START, HO_ENDp1)
 
@@ -118,7 +119,7 @@ def create_clients_daily_table(spark, dataframe_factory):
 
 @fixture(autouse=True)
 def mock_external_params(monkeypatch):
-    def mocked_pars(spark, param_bucket, param_prefix):
+    def mocked_pars(spark, max_sub_date, param_bucket, param_prefix):
         pars_df = DataFrame(
             {
                 "alpha": [0.825],
@@ -137,10 +138,10 @@ def rfn(spark, create_clients_daily_table):
     create_clients_daily_table
     rfn_sdf, pars = pred_job.extract(
         spark,
+        sub_date=MODEL_LAST_DAY.strftime(S3_DAY_FMT_DASH),
         param_bucket="dummy_bucket",
         param_prefix="dummy_prefix",
         model_win=MODEL_WINDOW,
-        ho_start=HO_START.date(),
         sample_ids=[1],
     )
     rfn2 = pred_job.transform(rfn_sdf, pars, return_preds=[7, 14])
@@ -158,7 +159,11 @@ def test_max_preds(rfn_pd):
     these should have highest predict prob(alive)
     and # of returns.
     """
-    pred_cols = ["P7", "P14", "P_alive"]
+    pred_cols = [
+        "e_total_days_in_next_7_days",
+        "e_total_days_in_next_14_days",
+        "prob_active",
+    ]
     first_client_preds = rfn_pd.loc["0"][pred_cols]
 
     max_min = rfn_pd[pred_cols].apply(["max", "min"])
