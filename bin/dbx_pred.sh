@@ -9,11 +9,11 @@ python bin/mozetl-databricks.py \
 	--token $DBX_TOKEN  \
 	--module-name bgbb_airflow \
 	bgbb_pred \
-		--submission-date "2019-02-15" \
-        --model-win 20 \
-        --sample-ids "[42]" \
+		--submission-date "2019-03-26" \
+        --model-win 90 \
+        --sample-ids "None" \
 		--pred-bucket "s3://net-mozaws-prod-us-west-2-pipeline-analysis" \
-		--pred-prefix "wbeard/bgbb_preds" \
+		--pred-prefix "wbeard/active_profiles" \
 		--param-bucket "s3://net-mozaws-prod-us-west-2-pipeline-analysis" \
 		--param-prefix "wbeard/bgbb_params"
         # --model-params '[0.825,0.68,0.0876,1.385]' \

@@ -1,5 +1,5 @@
 from os.path import join
-from typing import List, Tuple, Union
+from typing import Dict, List, Tuple, Union
 
 import click
 import pandas as pd
@@ -11,10 +11,11 @@ from pyspark.sql import SparkSession
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 
 pd.options.display.max_columns = 20
+pd.options.display.width = 120
 
 
 default_pred_bucket = "s3://net-mozaws-prod-us-west-2-pipeline-analysis"
-default_pred_prefix = "wbeard/bgbb_preds"
+default_pred_prefix = "wbeard/active_profiles"
 default_param_bucket = default_pred_bucket
 default_param_prefix = "wbeard/bgbb_params"
 
@@ -66,7 +67,7 @@ def transform(df, bgbb_params, return_preds=(14,)):
     p_alive = mk_p_alive_udf(bgbb, params=bgbb_params, alive_n_days_later=0)
     n_returns_udfs = [
         (
-            "P{}".format(days),
+            "e_total_days_in_next_{}_days".format(days),
             mk_n_returns_udf(
                 bgbb, params=bgbb_params, return_in_next_n_days=days
             ),
@@ -78,6 +79,22 @@ def transform(df, bgbb_params, return_preds=(14,)):
     for days, udf in n_returns_udfs:
         df2 = df2.withColumn(days, udf(df.Frequency, df.Recency, df.N))
     df2 = add_p_th(bgbb, dfs=df2, fcol="Frequency", rcol="Recency", ncol="N")
+
+    def rename_cols(dfs, col_mapping: Dict[str, str]):
+        for old_c, new_c in col_mapping.items():
+            dfs = dfs.withColumnRenamed(old_c, new_c)
+        return dfs
+
+    renames = {
+        "N": "num_opportunities",
+        "P_alive": "prob_active",
+        "p": "prob_daily_usage",
+        "th": "prob_daily_leave",
+    }
+    df2 = rename_cols(df2, renames)
+    to_lower_case = dict(zip(df2.columns, map(str.lower, df2.columns)))
+    df2 = rename_cols(df2, to_lower_case)
+
     return df2
 
 
@@ -91,7 +108,7 @@ def save(spark, submission_date, pred_bucket, pred_prefix, df):
     (df.write.partitionBy("sample_id").parquet(path, mode="overwrite"))
     print("Done writing")
     df_out = spark.read.parquet(path).limit(5).toPandas()
-    print('Sample of written data:\n', df_out)
+    print("Sample of written data:\n", df_out)
 
 
 @click.command("bgbb_pred")
