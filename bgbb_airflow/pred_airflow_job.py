@@ -21,7 +21,10 @@ default_param_bucket = default_pred_bucket
 default_param_prefix = "wbeard/bgbb_params"
 
 
-def pull_most_recent_params(spark, max_sub_date, param_bucket, param_prefix):
+def pull_most_recent_params(
+    spark, max_sub_date: Dash_str, param_bucket, param_prefix
+):
+    "@max_sub_date: Maximum params date to pull; dashed format yyyy-MM-dd"
     pars_loc = join(param_bucket, param_prefix)
     print("Reading params from {}".format(pars_loc))
     spars = spark.read.parquet(pars_loc)
