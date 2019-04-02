@@ -15,7 +15,7 @@ extras = {"test": test_deps}
 
 setup(
     name="bgbb_airflow",
-    version="0.1.0",
+    version="0.1.1",
     description="Scripts to run airflow jobs using bgbb_lib",
     author="W Chris Beard",
     url="https://github.com/wcbeard/bgbb_airflow.git",
@@ -23,8 +23,8 @@ setup(
     include_package_data=True,
     # TODO: pin versions?
     install_requires=[
-        "bgbb==0.1.3",
-        "numba==0.42.0",
+        "bgbb==0.1.4",
+        "numba>=0.34",
         "click",
         "pyarrow",
         "pyspark",

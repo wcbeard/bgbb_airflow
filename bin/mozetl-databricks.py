@@ -62,6 +62,8 @@ def run_submit(args):
         "new_cluster": {
             "spark_version": "4.3.x-scala2.11",
             "node_type_id": "c3.4xlarge",
+            # "spark_version": "5.2.x-cpu-ml-scala2.11",
+            # "node_type_id": "c4.4xlarge",
             "num_workers": args.num_workers,
             "aws_attributes": {
                 "availability": "ON_DEMAND",
