@@ -93,7 +93,7 @@ def save(submission_date, bucket, prefix, params_df):
     help="List of integer sample ids or None",
 )
 @click.option("--sample-fraction", type=float, default=0.1)
-@click.option("--penalizer-coef", type=str, default=0.01)
+@click.option("--penalizer-coef", type=float, default=0.01)
 @click.option(
     "--bucket", type=str, default="net-mozaws-prod-us-west-2-pipeline-analysis"
 )
