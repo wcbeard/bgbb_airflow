@@ -11,6 +11,7 @@ from bgbb.sql.sql_utils import (
 from pyspark.sql import SparkSession
 
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
+import bgbb_airflow
 
 
 default_param_prefix = "wbeard/bgbb_params"
@@ -50,7 +51,9 @@ def extract(
     print("{:,.0f} users pulled".format(n_users))
     assert (
         dfpr[user_col].sum() > check_min_users
-    ), "Assuming we're training on at least {} clients".format(check_min_users)
+    ), "Assuming we're training on at least {} clients".format(
+        check_min_users
+    )
 
     return dfpr, n_users
 
@@ -108,6 +111,11 @@ def main(
     bucket,
     prefix,
 ):
+    print(
+        "Running param fitting. bgbb_airflow version {}".format(
+            bgbb_airflow.__version__
+        )
+    )
     spark = SparkSession.builder.getOrCreate()
     ho_start = pd.to_datetime(submission_date).strftime(S3_DAY_FMT_DASH)
 

@@ -15,6 +15,8 @@ from bgbb.sql.sql_utils import run_rec_freq_spk, S3_DAY_FMT_DASH
 from pyspark.sql import SparkSession
 
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
+import bgbb_airflow
+
 
 pd.options.display.max_columns = 20
 pd.options.display.width = 120
@@ -165,6 +167,11 @@ def main(
     param_prefix,
 ):
     spark = SparkSession.builder.getOrCreate()
+    print(
+        "Generating predictions with bgbb_airflow version {}".format(
+            bgbb_airflow.__version__
+        )
+    )
 
     df, abgd_params = extract(
         spark,
