@@ -117,7 +117,7 @@ def transform(df, bgbb_params, return_preds=(14,)):
 
 
 def save(spark, submission_date, pred_bucket, pred_prefix, df):
-    path = join(
+    path = "s3://" + join(
         pred_bucket,
         pred_prefix,
         "submission_date_s3={}".format(submission_date),
