@@ -25,7 +25,7 @@ def pull_most_recent_params(
     spark, max_sub_date: Dash_str, param_bucket, param_prefix
 ):
     "@max_sub_date: Maximum params date to pull; dashed format yyyy-MM-dd"
-    pars_loc = join(param_bucket, param_prefix)
+    pars_loc = "s3://" + join(param_bucket, param_prefix)
     print("Reading params from {}".format(pars_loc))
     spars = spark.read.parquet(pars_loc)
     pars_df = (
