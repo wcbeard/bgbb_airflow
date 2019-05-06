@@ -4,7 +4,7 @@ import re
 
 
 def read_version():
-    "https://stackoverflow.com/a/7071358/386279"
+    """https://stackoverflow.com/a/7071358/386279"""
     VERSIONFILE = "bgbb_airflow/_version.py"
 
     with open(VERSIONFILE, "rt") as fp:
