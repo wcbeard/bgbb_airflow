@@ -15,7 +15,7 @@ pd.options.display.max_columns = 20
 pd.options.display.width = 120
 Dash_str = str
 
-default_pred_bucket = "s3://net-mozaws-prod-us-west-2-pipeline-analysis"
+default_pred_bucket = "net-mozaws-prod-us-west-2-pipeline-analysis"
 default_pred_prefix = "wbeard/active_profiles"
 default_param_bucket = default_pred_bucket
 default_param_prefix = "wbeard/bgbb_params"
