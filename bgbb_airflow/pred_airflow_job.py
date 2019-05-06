@@ -5,11 +5,18 @@ from typing import Dict, List, Tuple, Union
 import click
 import pandas as pd
 from bgbb import BGBB
-from bgbb.sql.bgbb_udfs import add_p_th, mk_n_returns_udf, mk_p_alive_udf
+from bgbb.sql.bgbb_udfs import (
+    add_mau,
+    add_p_th,
+    mk_n_returns_udf,
+    mk_p_alive_udf,
+)
 from bgbb.sql.sql_utils import run_rec_freq_spk, S3_DAY_FMT_DASH
 from pyspark.sql import SparkSession
 
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
+import bgbb_airflow
+
 
 pd.options.display.max_columns = 20
 pd.options.display.width = 120
@@ -78,6 +85,8 @@ def transform(df, bgbb_params, return_preds=(14,)):
     @return_preds: for each integer value `n`, make predictions
     for how many times a client is expected to return in the next `n`
     days.
+    To see which columns are changed, see `test_transform_cols` and
+    `test_preds_schema` in test_bgbb.
     """
     bgbb = BGBB(params=bgbb_params)
 
@@ -97,6 +106,14 @@ def transform(df, bgbb_params, return_preds=(14,)):
     for days, udf in n_returns_udfs:
         df2 = df2.withColumn(days, udf(df.Frequency, df.Recency, df.N))
     df2 = add_p_th(bgbb, dfs=df2, fcol="Frequency", rcol="Recency", ncol="N")
+    df2 = add_mau(
+        bgbb,
+        dfs=df2,
+        fcol="Frequency",
+        rcol="Recency",
+        ncol="N",
+        n_days_future=28,
+    )
 
     def rename_cols(dfs, col_mapping: Dict[str, str]):
         for old_c, new_c in col_mapping.items():
@@ -152,6 +169,11 @@ def main(
     param_prefix,
 ):
     spark = SparkSession.builder.getOrCreate()
+    print(
+        "Generating predictions with bgbb_airflow version {}".format(
+            bgbb_airflow.__version__
+        )
+    )
 
     df, abgd_params = extract(
         spark,

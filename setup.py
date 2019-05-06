@@ -1,21 +1,34 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
+import re
 
-test_deps = [
-    # 'coverage==4.5.2',
-    # 'pytest-cov==2.6.0',
-    # 'pytest-timeout==1.3.3',
-    # 'moto==1.3.6',
-    # 'mock==2.0.0',
-    "pytest",
-    # 'flake8==3.6.0'
-]
+
+def read_version():
+    """https://stackoverflow.com/a/7071358/386279"""
+    VERSIONFILE = "bgbb_airflow/_version.py"
+
+    with open(VERSIONFILE, "rt") as fp:
+        verstrline = fp.read()
+    VSRE = r"^__version__ = ['\"]([^'\"]*)['\"]"
+    mo = re.search(VSRE, verstrline, re.M)
+    if mo:
+        verstr = mo.group(1)
+    else:
+        raise RuntimeError(
+            "Unable to find version string in %s." % (VERSIONFILE,)
+        )
+    return verstr
+
+
+verstr = read_version()
+
+test_deps = ["pytest"]
 
 extras = {"test": test_deps}
 
 setup(
     name="bgbb_airflow",
-    version="0.1.1",
+    version=verstr,
     description="Scripts to run airflow jobs using bgbb_lib",
     author="W Chris Beard",
     url="https://github.com/wcbeard/bgbb_airflow.git",
@@ -23,7 +36,7 @@ setup(
     include_package_data=True,
     # TODO: pin versions?
     install_requires=[
-        "bgbb==0.1.4",
+        "bgbb==0.1.5",
         "numba>=0.34",
         "click",
         "pyarrow",

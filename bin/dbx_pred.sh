@@ -1,15 +1,18 @@
+set -xeuo pipefail
+echo "Running for submission-date==$1"
+ # todo: mar 25 on to apr
 DBX_TOKEN=`cat ~/dbx_token.txt`
 	# --git-path https://github.com/wcbeard/python_mozetl.git \
 echo `which python`
 python bin/mozetl-databricks.py \
 	--git-path https://github.com/wcbeard/bgbb_airflow.git \
-	--git-branch samp_id \
+	--git-branch pmau \
 	--python 3 \
 	--num-workers 5 \
 	--token $DBX_TOKEN  \
 	--module-name bgbb_airflow \
 	bgbb_pred \
-		--submission-date "2019-03-19" \
+		--submission-date "$1" \
         --model-win 90 \
         --sample-ids "[42]" \
 		--pred-bucket "s3://net-mozaws-prod-us-west-2-pipeline-analysis" \
