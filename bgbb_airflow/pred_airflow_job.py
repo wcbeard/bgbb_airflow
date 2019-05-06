@@ -85,6 +85,8 @@ def transform(df, bgbb_params, return_preds=(14,)):
     @return_preds: for each integer value `n`, make predictions
     for how many times a client is expected to return in the next `n`
     days.
+    To see which columns are changed, see `test_transform_cols` and
+    `test_preds_schema` in test_bgbb.
     """
     bgbb = BGBB(params=bgbb_params)
 

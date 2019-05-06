@@ -211,3 +211,41 @@ def test_preds_schema(rfn):
         "prob_mau",
     ]
     assert sorted(rfn.columns) == sorted(expected_cols)
+
+
+def test_transform_cols(spark, create_clients_daily_table):
+    """Test new columns added by pred_airflow_job.transform"""
+    create_clients_daily_table
+    rfn_sdf, pars = pred_job.extract(
+        spark,
+        sub_date=MODEL_LAST_DAY.strftime(S3_DAY_FMT_DASH),
+        param_bucket="dummy_bucket",
+        param_prefix="dummy_prefix",
+        model_win=MODEL_WINDOW,
+        sample_ids=[1],
+    )
+    cols1 = set(rfn_sdf.columns)
+    rfn2 = pred_job.transform(rfn_sdf, pars, return_preds=[7, 14, 21, 28])
+    cols2 = set(rfn2.columns)
+
+    new_cols = cols2 - cols1
+    expected_new_cols = {
+        "frequency",
+        "recency",
+        "num_opportunities",
+        "min_day",
+        "max_day",
+        "e_total_days_in_next_7_days",
+        "e_total_days_in_next_14_days",
+        "e_total_days_in_next_21_days",
+        "e_total_days_in_next_28_days",
+        "prob_mau",
+        "prob_active",
+        "prob_daily_leave",
+        "prob_daily_usage",
+    }
+    assert new_cols == expected_new_cols
+
+    expected_removed_cols = {"Frequency", "Recency", "N", "Max_day", "Min_day"}
+    removed_cols = cols1 - cols2
+    assert removed_cols == expected_removed_cols, "Some columns renamed"
