@@ -144,7 +144,7 @@ def rfn(spark, create_clients_daily_table):
         model_win=MODEL_WINDOW,
         sample_ids=[1],
     )
-    rfn2 = pred_job.transform(rfn_sdf, pars, return_preds=[7, 14])
+    rfn2 = pred_job.transform(rfn_sdf, pars, return_preds=[7, 14, 21, 28])
     return rfn2
 
 
@@ -190,3 +190,24 @@ def test_get_params(spark, create_clients_daily_table):
     params = fit_job.transform(rfn, spark, penalizer_coef=0.01)
     assert params.count() == 1, "Returns single row"
     return params
+
+
+def test_preds_schema(rfn):
+    expected_cols = [
+        "client_id",
+        "sample_id",
+        "recency",
+        "frequency",
+        "num_opportunities",
+        "max_day",
+        "min_day",
+        "prob_active",
+        "e_total_days_in_next_7_days",
+        "e_total_days_in_next_14_days",
+        "e_total_days_in_next_21_days",
+        "e_total_days_in_next_28_days",
+        "prob_daily_usage",
+        "prob_daily_leave",
+        "prob_mau",
+    ]
+    assert sorted(rfn.columns) == sorted(expected_cols)
