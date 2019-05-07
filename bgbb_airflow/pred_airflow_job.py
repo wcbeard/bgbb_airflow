@@ -22,7 +22,7 @@ pd.options.display.max_columns = 20
 pd.options.display.width = 120
 Dash_str = str
 
-default_pred_bucket = "s3://net-mozaws-prod-us-west-2-pipeline-analysis"
+default_pred_bucket = "net-mozaws-prod-us-west-2-pipeline-analysis"
 default_pred_prefix = "wbeard/active_profiles"
 default_param_bucket = default_pred_bucket
 default_param_prefix = "wbeard/bgbb_params"
@@ -32,7 +32,7 @@ def pull_most_recent_params(
     spark, max_sub_date: Dash_str, param_bucket, param_prefix
 ):
     "@max_sub_date: Maximum params date to pull; dashed format yyyy-MM-dd"
-    pars_loc = join(param_bucket, param_prefix)
+    pars_loc = "s3://" + join(param_bucket, param_prefix)
     print("Reading params from {}".format(pars_loc))
     spars = spark.read.parquet(pars_loc)
     pars_df = (
@@ -134,7 +134,7 @@ def transform(df, bgbb_params, return_preds=(14,)):
 
 
 def save(spark, submission_date, pred_bucket, pred_prefix, df):
-    path = join(
+    path = "s3://" + join(
         pred_bucket,
         pred_prefix,
         "submission_date_s3={}".format(submission_date),
