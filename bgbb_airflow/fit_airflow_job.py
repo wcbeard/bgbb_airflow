@@ -51,9 +51,7 @@ def extract(
     print("{:,.0f} users pulled".format(n_users))
     assert (
         dfpr[user_col].sum() > check_min_users
-    ), "Assuming we're training on at least {} clients".format(
-        check_min_users
-    )
+    ), "Assuming we're training on at least {} clients".format(check_min_users)
 
     return dfpr, n_users
 

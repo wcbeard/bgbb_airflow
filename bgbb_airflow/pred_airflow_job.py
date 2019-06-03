@@ -18,7 +18,7 @@ from bgbb_airflow.bgbb_utils import PythonLiteralOption
 import bgbb_airflow
 
 
-pd.options.display.max_columns = 20
+pd.options.display.max_columns = 40
 pd.options.display.width = 120
 Dash_str = str
 
@@ -52,6 +52,14 @@ def extract(
     param_prefix,
     model_win=90,
     sample_ids: Union[Tuple, List[int]] = (),
+    first_dims=[
+        "locale",
+        "normalized_channel",
+        "os",
+        "normalized_os_version",
+        "country",
+        "app_version",
+    ],
 ):
     "TODO: increase ho_win to evaluate model performance"
 
@@ -66,6 +74,7 @@ def extract(
         ho_start=holdout_start,
         sample_ids=list(sample_ids),
         spark=spark,
+        first_dims=first_dims,
     )
 
     # Hopefully not too far off from something like
