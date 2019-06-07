@@ -18,7 +18,7 @@ from bgbb_airflow.bgbb_utils import PythonLiteralOption
 import bgbb_airflow
 
 
-pd.options.display.max_columns = 20
+pd.options.display.max_columns = 40
 pd.options.display.width = 120
 Dash_str = str
 
@@ -26,6 +26,14 @@ default_pred_bucket = "net-mozaws-prod-us-west-2-pipeline-analysis"
 default_pred_prefix = "wbeard/active_profiles"
 default_param_bucket = default_pred_bucket
 default_param_prefix = "wbeard/bgbb_params"
+
+first_dims = [
+    "locale",
+    "normalized_channel",
+    "os",
+    "normalized_os_version",
+    "country",
+]
 
 
 def pull_most_recent_params(
@@ -52,6 +60,8 @@ def extract(
     param_prefix,
     model_win=90,
     sample_ids: Union[Tuple, List[int]] = (),
+    first_dims=first_dims,
+
 ):
     "TODO: increase ho_win to evaluate model performance"
 
@@ -66,6 +76,7 @@ def extract(
         ho_start=holdout_start,
         sample_ids=list(sample_ids),
         spark=spark,
+        first_dims=first_dims,
     )
 
     # Hopefully not too far off from something like

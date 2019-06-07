@@ -11,6 +11,7 @@ from pytest import fixture
 
 from bgbb_airflow import fit_airflow_job as fit_job
 from bgbb_airflow import pred_airflow_job as pred_job
+from bgbb_airflow.pred_airflow_job import first_dims
 
 MODEL_WINDOW = 90
 HO_WINDOW = 10
@@ -33,6 +34,11 @@ def create_clients_daily_table(spark, dataframe_factory):
             StructField("client_id", StringType(), True),
             StructField("sample_id", StringType(), True),
             StructField("submission_date_s3", StringType(), True),
+            StructField("locale", StringType(), True),
+            StructField("normalized_channel", StringType(), True),
+            StructField("os", StringType(), True),
+            StructField("normalized_os_version", StringType(), True),
+            StructField("country", StringType(), True),
         ]
     )
 
@@ -42,6 +48,11 @@ def create_clients_daily_table(spark, dataframe_factory):
         "client_id": "client-id",
         "sample_id": "1",
         "submission_date_s3": "20181220",
+        "locale": "en-IN",
+        "normalized_channel": "release",
+        "os": "Darwin",
+        "normalized_os_version": "10",
+        "country": "IN",
     }
 
     def generate_data(dataframe_factory):
@@ -209,6 +220,11 @@ def test_preds_schema(rfn):
         "prob_daily_usage",
         "prob_daily_leave",
         "prob_mau",
+        "locale",
+        "normalized_channel",
+        "os",
+        "normalized_os_version",
+        "country",
     ]
     assert sorted(rfn.columns) == sorted(expected_cols)
 
@@ -223,6 +239,7 @@ def test_transform_cols(spark, create_clients_daily_table):
         param_prefix="dummy_prefix",
         model_win=MODEL_WINDOW,
         sample_ids=[1],
+        first_dims=first_dims,
     )
     cols1 = set(rfn_sdf.columns)
     rfn2 = pred_job.transform(rfn_sdf, pars, return_preds=[7, 14, 21, 28])
