@@ -11,6 +11,7 @@ from pytest import fixture
 
 from bgbb_airflow import fit_airflow_job as fit_job
 from bgbb_airflow import pred_airflow_job as pred_job
+from bgbb_airflow.pred_airflow_job import first_dims
 
 MODEL_WINDOW = 90
 HO_WINDOW = 10
@@ -22,15 +23,6 @@ day_range = pd.date_range(MODEL_START, HO_ENDp1)
 
 N_CLIENTS_IN_SAMPLE = 10
 N_CLIENTS_ALL = 2 * N_CLIENTS_IN_SAMPLE
-
-first_dims = [
-    "locale",
-    "normalized_channel",
-    "os",
-    "normalized_os_version",
-    "country",
-    "app_version",
-]
 
 
 @fixture()
@@ -47,7 +39,6 @@ def create_clients_daily_table(spark, dataframe_factory):
             StructField("os", StringType(), True),
             StructField("normalized_os_version", StringType(), True),
             StructField("country", StringType(), True),
-            StructField("app_version", StringType(), True),
         ]
     )
 
@@ -62,7 +53,6 @@ def create_clients_daily_table(spark, dataframe_factory):
         "os": "Darwin",
         "normalized_os_version": "10",
         "country": "IN",
-        "app_version": "67.0",
     }
 
     def generate_data(dataframe_factory):
@@ -235,7 +225,6 @@ def test_preds_schema(rfn):
         "os",
         "normalized_os_version",
         "country",
-        "app_version",
     ]
     assert sorted(rfn.columns) == sorted(expected_cols)
 

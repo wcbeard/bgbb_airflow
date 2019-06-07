@@ -27,6 +27,14 @@ default_pred_prefix = "wbeard/active_profiles"
 default_param_bucket = default_pred_bucket
 default_param_prefix = "wbeard/bgbb_params"
 
+first_dims = [
+    "locale",
+    "normalized_channel",
+    "os",
+    "normalized_os_version",
+    "country",
+]
+
 
 def pull_most_recent_params(
     spark, max_sub_date: Dash_str, param_bucket, param_prefix
@@ -52,14 +60,8 @@ def extract(
     param_prefix,
     model_win=90,
     sample_ids: Union[Tuple, List[int]] = (),
-    first_dims=[
-        "locale",
-        "normalized_channel",
-        "os",
-        "normalized_os_version",
-        "country",
-        "app_version",
-    ],
+    first_dims=first_dims,
+
 ):
     "TODO: increase ho_win to evaluate model performance"
 
