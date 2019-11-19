@@ -20,18 +20,10 @@ default_pred_prefix = "wbeard/active_profiles"
 default_param_bucket = default_pred_bucket
 default_param_prefix = "wbeard/bgbb_params"
 
-first_dims = [
-    "locale",
-    "normalized_channel",
-    "os",
-    "normalized_os_version",
-    "country",
-]
+first_dims = ["locale", "normalized_channel", "os", "normalized_os_version", "country"]
 
 
-def pull_most_recent_params(
-    spark, max_sub_date: Dash_str, param_bucket, param_prefix
-):
+def pull_most_recent_params(spark, max_sub_date: Dash_str, param_bucket, param_prefix):
     "@max_sub_date: Maximum params date to pull; dashed format yyyy-MM-dd"
     pars_loc = "s3://" + join(param_bucket, param_prefix)
     print("Reading params from {}".format(pars_loc))
@@ -54,13 +46,12 @@ def extract(
     model_win=90,
     sample_ids: Union[Tuple, List[int]] = (),
     first_dims=first_dims,
-
 ):
     "TODO: increase ho_win to evaluate model performance"
 
-    holdout_start_dt = dt.datetime.strptime(
-        sub_date, S3_DAY_FMT_DASH
-    ) + dt.timedelta(days=1)
+    holdout_start_dt = dt.datetime.strptime(sub_date, S3_DAY_FMT_DASH) + dt.timedelta(
+        days=1
+    )
     holdout_start = holdout_start_dt.strftime(S3_DAY_FMT_DASH)
 
     df, q = run_rec_freq_spk(
@@ -99,9 +90,7 @@ def transform(df, bgbb_params, return_preds=(14,)):
     n_returns_udfs = [
         (
             "e_total_days_in_next_{}_days".format(days),
-            mk_n_returns_udf(
-                bgbb, params=bgbb_params, return_in_next_n_days=days
-            ),
+            mk_n_returns_udf(bgbb, params=bgbb_params, return_in_next_n_days=days),
         )
         for days in return_preds
     ]
@@ -111,12 +100,7 @@ def transform(df, bgbb_params, return_preds=(14,)):
         df2 = df2.withColumn(days, udf(df.Frequency, df.Recency, df.N))
     df2 = add_p_th(bgbb, dfs=df2, fcol="Frequency", rcol="Recency", ncol="N")
     df2 = add_mau(
-        bgbb,
-        dfs=df2,
-        fcol="Frequency",
-        rcol="Recency",
-        ncol="N",
-        n_days_future=28,
+        bgbb, dfs=df2, fcol="Frequency", rcol="Recency", ncol="N", n_days_future=28
     )
 
     def rename_cols(dfs, col_mapping: Dict[str, str]):
@@ -139,9 +123,7 @@ def transform(df, bgbb_params, return_preds=(14,)):
 
 def save(spark, submission_date, pred_bucket, pred_prefix, df):
     path = "s3://" + join(
-        pred_bucket,
-        pred_prefix,
-        "submission_date_s3={}".format(submission_date),
+        pred_bucket, pred_prefix, "submission_date_s3={}".format(submission_date)
     )
     print("Saving to {}...".format(path))
     (df.write.partitionBy("sample_id").parquet(path, mode="overwrite"))
@@ -189,10 +171,6 @@ def main(
     )
     df2 = transform(df, abgd_params, return_preds=[7, 14, 21, 28])
     save(
-        spark,
-        submission_date,
-        pred_bucket=pred_bucket,
-        pred_prefix=pred_prefix,
-        df=df2,
+        spark, submission_date, pred_bucket=pred_bucket, pred_prefix=pred_prefix, df=df2
     )
     print("Success!")

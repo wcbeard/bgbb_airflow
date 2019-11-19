@@ -106,9 +106,7 @@ def create_clients_daily_table(spark, dataframe_factory):
             row = default_sample.copy()
             row.update(dict(client_id=cid, sample_id=samp))
 
-            cid_rows = gen_client_days(
-                client=row, day_range=day_range, p=p, th=th
-            )
+            cid_rows = gen_client_days(client=row, day_range=day_range, p=p, th=th)
             cids_rows.extend(cid_rows)
         return cids_rows
 
@@ -132,12 +130,7 @@ def create_clients_daily_table(spark, dataframe_factory):
 def mock_external_params(monkeypatch):
     def mocked_pars(spark, max_sub_date, param_bucket, param_prefix):
         pars_df = DataFrame(
-            {
-                "alpha": [0.825],
-                "beta": [0.68],
-                "gamma": [0.0876],
-                "delta": [1.385],
-            }
+            {"alpha": [0.825], "beta": [0.68], "gamma": [0.0876], "delta": [1.385]}
         )
         return pars_df
 

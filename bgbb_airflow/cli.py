@@ -1,9 +1,11 @@
 import click
 import numba
-print('numba==', numba.__version__)
+
+print("numba==", numba.__version__)
 
 import bgbb
-print('bgbb==', bgbb.__version__)
+
+print("bgbb==", bgbb.__version__)
 
 from bgbb_airflow import (
     fit_airflow_job as bgbb_fit_job,
