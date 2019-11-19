@@ -4,11 +4,11 @@ from itertools import count
 
 import numpy.random as nr
 import pandas as pd
-from bgbb.sql.sql_utils import S3_DAY_FMT, S3_DAY_FMT_DASH
 from pandas import DataFrame
 from pyspark.sql.types import StringType, StructField, StructType
 from pytest import fixture
 
+from bgbb_airflow.sql_utils import S3_DAY_FMT, S3_DAY_FMT_DASH
 from bgbb_airflow import fit_airflow_job as fit_job
 from bgbb_airflow import pred_airflow_job as pred_job
 from bgbb_airflow.pred_airflow_job import first_dims
