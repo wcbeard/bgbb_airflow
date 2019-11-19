@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 import argparse
 import os
@@ -7,33 +7,26 @@ import logging
 from base64 import b64encode
 from textwrap import dedent
 
-try:
-    from urllib.request import urlopen, Request
-except ImportError:
-    from urllib2 import urlopen, Request
+from urllib import request, parse
 
 
 def api_request(instance, route, data, token):
-    api_endpoint = "https://{instance}/{route}".format(
-        instance=instance, route=route.lstrip("/")
-    )
-    headers = {
-        "Authorization": "Bearer {token}".format(token=token),
-        "Content-Type": "application/json",
-    }
-    req = Request(api_endpoint, data=data.encode(), headers=headers)
-    resp = urlopen(req)
-    logging.info("status: {} info: {}".format(resp.getcode(), resp.info()))
+    api_endpoint = f"https://{instance}/{route.lstrip('/')}"
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    data = json.dumps(data).encode()
+    req = request.Request(api_endpoint, data=data, headers=headers)
+    resp = request.urlopen(req)
+    logging.info(f"status: {resp.getcode()} info: {resp.info()}")
     return resp
 
 
 def generate_runner(module_name, instance, token):
     """Generate a runner for the current module to be run in Databricks."""
 
-    runner_data = """
+    runner_data = f"""
     # This runner has been auto-generated from mozilla/python_mozetl/bin/mozetl-databricks.py.
     # Any changes made to the runner file will be over-written on subsequent runs.
-    from {module} import cli
+    from {module_name} import cli
 
     try:
         cli.entry_point(auto_envvar_prefix="MOZETL")
@@ -41,18 +34,16 @@ def generate_runner(module_name, instance, token):
         # avoid calling sys.exit() in databricks
         # http://click.palletsprojects.com/en/7.x/api/?highlight=auto_envvar_prefix#click.BaseCommand.main
         pass
-    """.format(
-        module=module_name
-    )
+    """
     logging.debug(dedent(runner_data))
 
-    request = {
+    data = {
         "contents": b64encode(dedent(runner_data).encode()).decode(),
         "overwrite": True,
-        "path": "/FileStore/airflow/{module}_runner.py".format(module=module_name),
+        "path": f"/FileStore/airflow/{module_name}_runner.py",
     }
-    logging.debug(json.dumps(request, indent=2))
-    resp = api_request(instance, "/api/2.0/dbfs/put", json.dumps(request), token)
+    logging.debug(json.dumps(data, indent=2))
+    resp = api_request(instance, "/api/2.0/dbfs/put", data, token)
     logging.info(resp.read())
 
 
@@ -60,10 +51,8 @@ def run_submit(args):
     config = {
         "run_name": "mozetl local submission",
         "new_cluster": {
-            "spark_version": "4.3.x-scala2.11",
+            "spark_version": "6.1.x-scala2.11",
             "node_type_id": "c3.4xlarge",
-            # "spark_version": "5.2.x-cpu-ml-scala2.11",
-            # "node_type_id": "c4.4xlarge",
             "num_workers": args.num_workers,
             "aws_attributes": {
                 "availability": "ON_DEMAND",
@@ -71,41 +60,26 @@ def run_submit(args):
             },
         },
         "spark_python_task": {
-            "python_file": "dbfs:/FileStore/airflow/{module}_runner.py".format(
-                module=args.module_name
-            ),
+            "python_file": f"dbfs:/FileStore/airflow/{args.module_name}_runner.py",
             "parameters": args.command,
         },
-        "libraries": {
-            "pypi": {
-                "package": "git+{path}@{branch}".format(
-                    path=args.git_path, branch=args.git_branch
-                )
-            }
-        },
+        "libraries": {"pypi": {"package": "git+{args.git_path}@{args.git_branch}"}},
     }
-
-    if args.python == 3:
-        config["new_cluster"]["spark_env_vars"] = {
-            "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
-        }
 
     logging.debug(json.dumps(config, indent=2))
 
     # https://docs.databricks.com/api/latest/jobs.html#runs-submit
-    resp = api_request(
-        args.instance, "/api/2.0/jobs/runs/submit", json.dumps(config), args.token
-    )
+    resp = api_request(args.instance, "/api/2.0/jobs/runs/submit", config, args.token)
     logging.info(resp.read())
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="run mozetl")
+    parser = argparse.ArgumentParser(description="run bgbb")
     parser.add_argument(
         "--git-path",
         type=str,
-        default="https://github.com/mozilla/python_mozetl.git",
-        help="The URL to the git repository e.g. https://github.com/mozilla/python_mozetl.git",
+        default="https://github.com/wcbeard/bgbb_airflow.git",
+        help="The URL to the git repository e.g. https://github.com/wcbeard/bgbb_airflow.git",
     )
     parser.add_argument(
         "--git-branch", type=str, default="master", help="The branch to run e.g. master"
@@ -115,13 +89,6 @@ def parse_arguments():
         type=int,
         default=2,
         help="Number of worker instances to spawn in the cluster",
-    )
-    parser.add_argument(
-        "--python",
-        type=int,
-        choices=[2, 3],
-        default=2,
-        help="Version of Python to run on the cluster",
     )
     parser.add_argument(
         "--token",
@@ -136,10 +103,13 @@ def parse_arguments():
         help="The Databricks instance.",
     )
     parser.add_argument(
-        "--module-name", type=str, default="mozetl", help="Top-level module name to run"
+        "--module-name",
+        type=str,
+        default="bgbb_airflow",
+        help="Top-level module name to run",
     )
     parser.add_argument(
-        "command", nargs=argparse.REMAINDER, help="Arguments to pass to mozetl"
+        "command", nargs=argparse.REMAINDER, help="Arguments to pass to bgbb_airflow"
     )
     args = parser.parse_args()
     return args
