@@ -2,17 +2,12 @@ from typing import Tuple
 
 import click
 import pandas as pd
-from bgbb import BGBB
-from bgbb.sql.sql_utils import (
-    S3_DAY_FMT_DASH,
-    reduce_rec_freq_spk,
-    run_rec_freq_spk,
-)
 from pyspark.sql import SparkSession
 
+from bgbb import BGBB
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
-import bgbb_airflow
-
+from bgbb_airflow.sql_utils import (S3_DAY_FMT_DASH, reduce_rec_freq_spk,
+                                    run_rec_freq_spk)
 
 default_param_prefix = "wbeard/bgbb_params"
 
@@ -72,9 +67,7 @@ def transform(
 
 
 def save(submission_date, bucket, prefix, params_df):
-    path = "s3://{}/{}/submission_date_s3={}".format(
-        bucket, prefix, submission_date
-    )
+    path = "s3://{}/{}/submission_date_s3={}".format(bucket, prefix, submission_date)
     print("Saving to: {}".format(path))
     (params_df.repartition(1).write.parquet(path, mode="overwrite"))
 
@@ -83,9 +76,7 @@ def save(submission_date, bucket, prefix, params_df):
 @click.option("--submission-date", type=str, required=True)
 @click.option("--model-win", type=int, default=120)
 @click.option(
-    "--start-params",
-    cls=PythonLiteralOption,
-    default="[0.387, 0.912, 0.102, 1.504]",
+    "--start-params", cls=PythonLiteralOption, default="[0.387, 0.912, 0.102, 1.504]"
 )
 @click.option(
     "--sample-ids",
@@ -126,8 +117,6 @@ def main(
         sample_ids=sample_ids,
         check_min_users=50000,
     )
-    df2 = transform(
-        df, spark, penalizer_coef=penalizer_coef, start_params=start_params
-    )
+    df2 = transform(df, spark, penalizer_coef=penalizer_coef, start_params=start_params)
     save(submission_date, bucket, prefix, df2)
     print("Learning Success!")

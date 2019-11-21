@@ -4,11 +4,11 @@ from itertools import count
 
 import numpy.random as nr
 import pandas as pd
-from bgbb.sql.sql_utils import S3_DAY_FMT, S3_DAY_FMT_DASH
 from pandas import DataFrame
 from pyspark.sql.types import StringType, StructField, StructType
 from pytest import fixture
 
+from bgbb_airflow.sql_utils import S3_DAY_FMT, S3_DAY_FMT_DASH
 from bgbb_airflow import fit_airflow_job as fit_job
 from bgbb_airflow import pred_airflow_job as pred_job
 from bgbb_airflow.pred_airflow_job import first_dims
@@ -106,9 +106,7 @@ def create_clients_daily_table(spark, dataframe_factory):
             row = default_sample.copy()
             row.update(dict(client_id=cid, sample_id=samp))
 
-            cid_rows = gen_client_days(
-                client=row, day_range=day_range, p=p, th=th
-            )
+            cid_rows = gen_client_days(client=row, day_range=day_range, p=p, th=th)
             cids_rows.extend(cid_rows)
         return cids_rows
 
@@ -132,12 +130,7 @@ def create_clients_daily_table(spark, dataframe_factory):
 def mock_external_params(monkeypatch):
     def mocked_pars(spark, max_sub_date, param_bucket, param_prefix):
         pars_df = DataFrame(
-            {
-                "alpha": [0.825],
-                "beta": [0.68],
-                "gamma": [0.0876],
-                "delta": [1.385],
-            }
+            {"alpha": [0.825], "beta": [0.68], "gamma": [0.0876], "delta": [1.385]}
         )
         return pars_df
 
