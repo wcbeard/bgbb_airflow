@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-from setuptools import setup, find_packages
 import re
+
+from setuptools import find_packages, setup
 
 
 def read_version():
@@ -39,8 +40,9 @@ setup(
         "bgbb==0.1.6",
         "numba>=0.34",
         "click",
-        "pyarrow",
-        "pyspark",
+        "pandas==0.24",
+        "pyarrow==0.14.1",
+        "pyspark==2.4.4",
         "pytest",
         "six",
     ],
