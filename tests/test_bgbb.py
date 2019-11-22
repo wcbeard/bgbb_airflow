@@ -4,14 +4,15 @@ from itertools import count
 
 import numpy.random as nr
 import pandas as pd
+from click.testing import CliRunner
 from pandas import DataFrame
 from pyspark.sql.types import StringType, StructField, StructType
-from pytest import fixture
 
-from bgbb_airflow.sql_utils import S3_DAY_FMT, S3_DAY_FMT_DASH
 from bgbb_airflow import fit_airflow_job as fit_job
 from bgbb_airflow import pred_airflow_job as pred_job
 from bgbb_airflow.pred_airflow_job import first_dims
+from bgbb_airflow.sql_utils import S3_DAY_FMT, S3_DAY_FMT_DASH
+from pytest import fixture
 
 MODEL_WINDOW = 90
 HO_WINDOW = 10
@@ -139,7 +140,6 @@ def mock_external_params(monkeypatch):
 
 @fixture
 def rfn(spark, create_clients_daily_table):
-    create_clients_daily_table
     rfn_sdf, pars = pred_job.extract(
         spark,
         sub_date=MODEL_LAST_DAY.strftime(S3_DAY_FMT_DASH),
@@ -179,7 +179,6 @@ def test_max_preds(rfn_pd):
 
 def test_get_params(spark, create_clients_daily_table):
     "TODO: test multiple preds"
-    create_clients_daily_table
     ho_start = HO_START.strftime(S3_DAY_FMT_DASH)
     rfn, n_users = fit_job.extract(
         ho_start,
@@ -224,7 +223,6 @@ def test_preds_schema(rfn):
 
 def test_transform_cols(spark, create_clients_daily_table):
     """Test new columns added by pred_airflow_job.transform"""
-    create_clients_daily_table
     rfn_sdf, pars = pred_job.extract(
         spark,
         sub_date=MODEL_LAST_DAY.strftime(S3_DAY_FMT_DASH),
@@ -259,3 +257,28 @@ def test_transform_cols(spark, create_clients_daily_table):
     expected_removed_cols = {"Frequency", "Recency", "N", "Max_day", "Min_day"}
     removed_cols = cols1 - cols2
     assert removed_cols == expected_removed_cols, "Some columns renamed"
+
+
+def test_fit_airflow_job_cli(tmp_path, create_clients_daily_table):
+    output = str(tmp_path)
+    result = CliRunner().invoke(
+        fit_job.main,
+        [
+            "--submission-date",
+            HO_START.strftime(S3_DAY_FMT_DASH),
+            "--sample-fraction",
+            1.0,
+            "--check-min-users",
+            1,
+            "--sample-ids",
+            str(list(range(100))),
+            "--bucket",
+            output,
+            "--prefix",
+            "bgbb/params/v1",
+            "--bucket-protocol",
+            "file",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output

@@ -87,16 +87,20 @@ def save(submission_date, bucket, prefix, params_df, bucket_protocol="s3"):
     help="List of integer sample ids or None",
 )
 @click.option("--sample-fraction", type=float, default=0.1)
+@click.option("--check-min-users", type=int, default=50000)
 @click.option("--penalizer-coef", type=float, default=0.01)
 @click.option("--bucket", type=str, default="telemetry-test-bucket")
 @click.option("--prefix", type=str, default="bgbb/params/v1")
-@click.option("--bucket-protocol", type=click.Choice(["gs", "s3"]), default="s3")
+@click.option(
+    "--bucket-protocol", type=click.Choice(["gs", "s3", "file"]), default="s3"
+)
 def main(
     submission_date,
     model_win,
     start_params,
     sample_ids,
     sample_fraction,
+    check_min_users,
     penalizer_coef,
     bucket,
     prefix,
@@ -113,7 +117,7 @@ def main(
         model_win=model_win,
         samp_fraction=sample_fraction,
         sample_ids=sample_ids,
-        check_min_users=50000,
+        check_min_users=check_min_users,
     )
     df2 = transform(df, spark, penalizer_coef=penalizer_coef, start_params=start_params)
     save(submission_date, bucket, prefix, df2, bucket_protocol)

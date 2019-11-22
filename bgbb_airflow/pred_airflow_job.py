@@ -145,7 +145,9 @@ def save(spark, submission_date, pred_bucket, pred_prefix, df, bucket_protocol="
 @click.option("--pred-prefix", type=str, default="bgbb/active_profiles/v1")
 @click.option("--param-bucket", type=str, default="telemetry-test-bucket")
 @click.option("--param-prefix", type=str, default="bgbb/params/v1")
-@click.option("--bucket-protocol", type=click.Choice(["gs", "s3"]), default="s3")
+@click.option(
+    "--bucket-protocol", type=click.Choice(["gs", "s3", "file"]), default="s3"
+)
 def main(
     submission_date,
     model_win,
