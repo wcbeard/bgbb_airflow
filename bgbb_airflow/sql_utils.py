@@ -68,23 +68,25 @@ def mk_time_params(ho_win=14, model_win=90, ho_start="2018-08-01"):
     def r():
         pass
 
-    r.ho_start_datet = pd.to_datetime(ho_start)
-    r.ho_start_date = r.ho_start_datet.date()
+    r.ho_start_date = pd.to_datetime(ho_start).date()
     r.ho_last_date = r.ho_start_date + dt.timedelta(days=ho_win - 1)
     r.model_start_date = r.ho_start_date - dt.timedelta(days=model_win)
 
-    # Str format
-    mod_ho_ev = [r.model_start_date, r.ho_start_date, r.ho_last_date]
-    # mod_ho_ev_str
-    (r.model_start_date_str, r.ho_start_date_str, r.ho_last_date_str) = map(
-        to_s3_fmt, mod_ho_ev
-    )
+    # parameters for filtering s3-styled partitioning
+    r.window_start_date_nodash = to_s3_fmt(r.model_start_date)
+    r.window_last_date_nodash = to_s3_fmt(r.ho_last_date)
 
     # r.__dict__.update(locals())
     return r
 
 
-def extract_view_hive(spark, first_dims: List[str] = [], sample_ids: List[int] = [1]):
+def extract_view_hive(
+    spark,
+    start_ds_nodash,
+    end_ds_nodash,
+    first_dims: List[str] = [],
+    sample_ids: List[int] = [1],
+):
     """Extract clients daily data using the Hive connector in AWS. This method
     will no longer be supported as of 2019-12-12."""
     first_dims_agg = "".join(", " + dim for dim in first_dims)
@@ -95,14 +97,15 @@ def extract_view_hive(spark, first_dims: List[str] = [], sample_ids: List[int] =
     SELECT
         client_id
         , sample_id
-        , submission_date_s3
         , from_unixtime(unix_timestamp(submission_date_s3, 'yyyyMMdd'),
-                        'yyyy-MM-dd') AS sub_date
+                        'yyyy-MM-dd') AS submission_date
         {first_dims_agg}
     FROM clients_daily
     WHERE
         app_name = 'Firefox'
         AND channel = 'release'
+        AND submission_date_s3 >= '{start_ds_nodash}'
+        AND submission_date_s3 < '{end_ds_nodash}'
       {sample_comment}  AND sample_id in ({sample_ids})
     """
 
@@ -119,41 +122,41 @@ base_query = """
 -- clients_daily aggregates from window *before* the holdout date
 WITH cid_model as (
     SELECT
-        C.client_id
-        , C.sample_id
-        , MIN(C.sub_date) AS Min_day
-        , MAX(C.sub_date) AS Max_day
+        client_id
+        , sample_id
+        , MIN(submission_date) AS Min_day
+        , MAX(submission_date) AS Max_day
         , COUNT(*) AS X{select_first_dims}
-    FROM cid_day C
+    FROM cid_day
     WHERE
-        C.submission_date_s3 >= '{model_start_date_str}'
-        AND C.submission_date_s3 < '{ho_start_date_str}'
+        submission_date >= '{model_start_date}'
+        AND submission_date < '{ho_start_date}'
     GROUP BY 1, 2
 )
 
 , cid_holdout as (
     SELECT
-        C.client_id
+        client_id
         , COUNT(*) AS N_holdout
-    FROM cid_day C
+    FROM cid_day
     WHERE
-      C.submission_date_s3 >= '{ho_start_date_str}'
-      AND C.submission_date_s3 <= '{ho_last_date_str}'
+      submission_date >= '{ho_start_date}'
+      AND submission_date <= '{ho_last_date}'
     GROUP BY 1
 )
 
 , rec_freq as (
     SELECT
-        C.client_id
-        , C.sample_id
-        , datediff(C.Max_day, Min_day) AS Recency
+        client_id
+        , sample_id
+        , datediff(Max_day, Min_day) AS Recency
         , X - 1 AS Frequency
         -- N: # opportunities to return
         , datediff('{ho_start_date}', Min_day) - 1  AS N
-        , C.Max_day
-        , C.Min_day
+        , Max_day
+        , Min_day
         {first_dims}
-    FROM cid_model C
+    FROM cid_model
 )
 
 , rec_freq_holdout as (
@@ -170,12 +173,7 @@ SELECT * FROM {qname}
 
 # TODO: test both holdout=True and False
 def mk_rec_freq_q(
-    q,
-    holdout=False,
-    model_start_date_str: str = None,
-    pcd=None,
-    first_dims: List[str] = [],
-    **k,
+    q, holdout=False, model_start_date: str = None, first_dims: List[str] = [], **k
 ):
     """
     holdout: pull # of returns in holdout period?
@@ -188,9 +186,8 @@ def mk_rec_freq_q(
     first_dims_agg = "".join(", " + dim for dim in first_dims)
 
     kw = dict(
-        model_start_date_str=model_start_date_str,
+        model_start_date=model_start_date,
         qname=qname,
-        pcd=pcd,
         select_first_dims=first_dims_alias,
         first_dims=first_dims_agg,
     )
@@ -220,15 +217,19 @@ def run_rec_freq_spk(
         ho_start = dt.date.today() + dt.timedelta(days=ho_days_in_future)
     r = mk_time_params(ho_win=ho_win, model_win=model_win, ho_start=ho_start)
 
-    extract_view_hive(spark, first_dims, sample_ids)
+    extract_view_hive(
+        spark,
+        r.window_start_date_nodash,
+        r.window_last_date_nodash,
+        first_dims,
+        sample_ids,
+    )
     r.q = mk_rec_freq_q(
         q=rfn_base_query,
         holdout=holdout,
-        model_start_date_str=r.model_start_date_str,
-        pcd=r.model_start_date,
+        model_start_date=r.model_start_date,
         ho_start_date=r.ho_start_date,
-        ho_last_date_str=r.ho_last_date_str,
-        ho_start_date_str=r.ho_start_date_str,
+        ho_last_date=r.ho_last_date,
         first_dims=first_dims,
     )
     dfs = spark.sql(r.q)
