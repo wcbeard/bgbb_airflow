@@ -13,8 +13,6 @@ from bgbb_airflow.sql_utils import (
 )
 import bgbb_airflow
 
-default_param_prefix = "wbeard/bgbb_params"
-
 
 def extract(
     ho_start: "YYYY-MM-dd",  # noqa: F821
@@ -70,9 +68,9 @@ def transform(
     return params_df
 
 
-def save(submission_date, bucket, prefix, params_df):
-    path = "s3://{}/{}/submission_date_s3={}".format(bucket, prefix, submission_date)
-    print("Saving to: {}".format(path))
+def save(submission_date, bucket, prefix, params_df, bucket_protocol="s3"):
+    path = f"{bucket_protocol}://{bucket}/{prefix}/submission_date_s3={submission_date}"
+    print(f"Saving to: {path}")
     (params_df.repartition(1).write.parquet(path, mode="overwrite"))
 
 
@@ -90,10 +88,9 @@ def save(submission_date, bucket, prefix, params_df):
 )
 @click.option("--sample-fraction", type=float, default=0.1)
 @click.option("--penalizer-coef", type=float, default=0.01)
-@click.option(
-    "--bucket", type=str, default="net-mozaws-prod-us-west-2-pipeline-analysis"
-)
-@click.option("--prefix", type=str, default=default_param_prefix)
+@click.option("--bucket", type=str, default="telemetry-test-bucket")
+@click.option("--prefix", type=str, default="bgbb/params/v1")
+@click.option("--bucket-protocol", type=click.Choice(["gs", "s3"]), default="s3")
 def main(
     submission_date,
     model_win,
@@ -103,12 +100,9 @@ def main(
     penalizer_coef,
     bucket,
     prefix,
+    bucket_protocol,
 ):
-    print(
-        "Running param fitting. bgbb_airflow version {}".format(
-            bgbb_airflow.__version__
-        )
-    )
+    print(f"Running param fitting. bgbb_airflow version {bgbb_airflow.__version__}")
     spark = SparkSession.builder.getOrCreate()
     ho_start = pd.to_datetime(submission_date).strftime(S3_DAY_FMT_DASH)
 
@@ -122,5 +116,5 @@ def main(
         check_min_users=50000,
     )
     df2 = transform(df, spark, penalizer_coef=penalizer_coef, start_params=start_params)
-    save(submission_date, bucket, prefix, df2)
+    save(submission_date, bucket, prefix, df2, bucket_protocol)
     print("Learning Success!")
