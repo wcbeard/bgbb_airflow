@@ -259,7 +259,7 @@ def test_transform_cols(spark, create_clients_daily_table):
     assert removed_cols == expected_removed_cols, "Some columns renamed"
 
 
-def test_fit_airflow_job_cli(tmp_path, create_clients_daily_table):
+def test_fit_airflow_job_cli(spark, tmp_path, create_clients_daily_table):
     output = str(tmp_path)
     result = CliRunner().invoke(
         fit_job.main,
@@ -282,3 +282,28 @@ def test_fit_airflow_job_cli(tmp_path, create_clients_daily_table):
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
+
+    df = spark.read.parquet(str(tmp_path / "bgbb/params/v1"))
+    df.show()
+    df.count() == 1
+
+
+def test_pred_airflow_job_cli(spark, tmp_path, create_clients_daily_table):
+    output = str(tmp_path)
+    result = CliRunner().invoke(
+        pred_job.main,
+        [
+            "--submission-date",
+            HO_START.strftime(S3_DAY_FMT_DASH),
+            "--pred-bucket",
+            output,
+            "--param-bucket",
+            output,
+            "--bucket-protocol",
+            "file",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    df = spark.read.parquet(str(tmp_path / "bgbb/active_profiles/v1"))
+    assert df.count() == N_CLIENTS_ALL
