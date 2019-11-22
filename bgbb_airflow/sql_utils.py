@@ -84,25 +84,40 @@ def mk_time_params(ho_win=14, model_win=90, ho_start="2018-08-01"):
     return r
 
 
-base_query = """
-with cid_day as (
+def extract_view_hive(spark, first_dims: List[str] = [], sample_ids: List[int] = [1]):
+    """Extract clients daily data using the Hive connector in AWS. This method
+    will no longer be supported as of 2019-12-12."""
+    first_dims_agg = "".join(", " + dim for dim in first_dims)
+    sample_ids = to_samp_ids(sample_ids)
+    sample_comment = "" if sample_ids else "--"
+
+    query = f"""
     SELECT
-        C.client_id
-        , C.sample_id
-        , C.submission_date_s3
-        , from_unixtime(unix_timestamp(C.submission_date_s3, 'yyyyMMdd'),
+        client_id
+        , sample_id
+        , submission_date_s3
+        , from_unixtime(unix_timestamp(submission_date_s3, 'yyyyMMdd'),
                         'yyyy-MM-dd') AS sub_date
-        {first_dims}
-    FROM clients_daily C
+        {first_dims_agg}
+    FROM clients_daily
     WHERE
         app_name = 'Firefox'
         AND channel = 'release'
       {sample_comment}  AND sample_id in ({sample_ids})
-)
+    """
 
--- clients_daily aggregates from window *before*
--- the holdout date
-, cid_model as (
+    df = spark.sql(query)
+    df.createOrReplaceTempView("cid_day")
+
+
+def extract_view_bigquery():
+    """Extracts clients daily data using BigQuery as a data source."""
+    raise NotImplementedError("BigQuery source is not yet supported")
+
+
+base_query = """
+-- clients_daily aggregates from window *before* the holdout date
+WITH cid_model as (
     SELECT
         C.client_id
         , C.sample_id
@@ -159,9 +174,8 @@ def mk_rec_freq_q(
     holdout=False,
     model_start_date_str: str = None,
     pcd=None,
-    sample_ids: List[int] = [1],
     first_dims: List[str] = [],
-    **k
+    **k,
 ):
     """
     holdout: pull # of returns in holdout period?
@@ -170,14 +184,11 @@ def mk_rec_freq_q(
     will pull the first of these values for each client.
     """
     qname = "rec_freq_holdout" if holdout else "rec_freq"
-    sample_ids_str = to_samp_ids(sample_ids)  # type: str
     first_dims_alias = first_dim_select(first_dims, indent=8)
     first_dims_agg = "".join(", " + dim for dim in first_dims)
 
     kw = dict(
         model_start_date_str=model_start_date_str,
-        sample_ids=sample_ids_str,
-        sample_comment="" if sample_ids else "--",
         qname=qname,
         pcd=pcd,
         select_first_dims=first_dims_alias,
@@ -208,11 +219,11 @@ def run_rec_freq_spk(
     if ho_days_in_future is not None:
         ho_start = dt.date.today() + dt.timedelta(days=ho_days_in_future)
     r = mk_time_params(ho_win=ho_win, model_win=model_win, ho_start=ho_start)
+
+    extract_view_hive(spark, first_dims, sample_ids)
     r.q = mk_rec_freq_q(
         q=rfn_base_query,
         holdout=holdout,
-        # ignore_pcd=ignore_pcd,
-        sample_ids=sample_ids,
         model_start_date_str=r.model_start_date_str,
         pcd=r.model_start_date,
         ho_start_date=r.ho_start_date,
