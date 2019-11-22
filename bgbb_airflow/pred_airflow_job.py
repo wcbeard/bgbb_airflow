@@ -10,6 +10,7 @@ from bgbb import BGBB
 from bgbb.sql.bgbb_udfs import add_p_th, mk_n_returns_udf, mk_p_alive_udf, add_mau
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 from bgbb_airflow.sql_utils import S3_DAY_FMT_DASH, run_rec_freq_spk
+import bgbb_airflow
 
 pd.options.display.max_columns = 40
 pd.options.display.width = 120

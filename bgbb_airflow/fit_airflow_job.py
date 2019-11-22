@@ -8,6 +8,7 @@ from bgbb import BGBB
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 from bgbb_airflow.sql_utils import (S3_DAY_FMT_DASH, reduce_rec_freq_spk,
                                     run_rec_freq_spk)
+import bgbb_airflow
 
 default_param_prefix = "wbeard/bgbb_params"
 
