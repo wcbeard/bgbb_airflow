@@ -45,6 +45,9 @@ def extract(
     sample_ids: Union[Tuple, List[int]] = (),
     first_dims=first_dims,
     bucket_protocol="s3",
+    source="hive",
+    project_id=None,
+    dataset_id=None,
 ):
     "TODO: increase ho_win to evaluate model performance"
 
@@ -60,6 +63,9 @@ def extract(
         sample_ids=list(sample_ids),
         spark=spark,
         first_dims=first_dims,
+        source=source,
+        project_id=project_id,
+        dataset_id=dataset_id,
     )
 
     # Hopefully not too far off from something like
@@ -148,6 +154,9 @@ def save(spark, submission_date, pred_bucket, pred_prefix, df, bucket_protocol="
 @click.option(
     "--bucket-protocol", type=click.Choice(["gs", "s3", "file"]), default="s3"
 )
+@click.option("--source", type=click.Choice(["bigquery", "hive"]), default="hive")
+@click.option("--project-id", type=str, default="moz-fx-data-shared-prod")
+@click.option("--dataset-id", type=str, default="telemetry")
 def main(
     submission_date,
     model_win,
@@ -157,6 +166,9 @@ def main(
     param_bucket,
     param_prefix,
     bucket_protocol,
+    source,
+    project_id,
+    dataset_id,
 ):
     spark = SparkSession.builder.getOrCreate()
     print(
@@ -171,6 +183,9 @@ def main(
         model_win=model_win,
         sample_ids=sample_ids,
         bucket_protocol=bucket_protocol,
+        source=source,
+        project_id=project_id,
+        dataset_id=dataset_id,
     )
     df2 = transform(df, abgd_params, return_preds=[7, 14, 21, 28])
     save(

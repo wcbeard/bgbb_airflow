@@ -14,7 +14,7 @@ def to_s3_fmt(date):
 
 def to_samp_ids(samp_ids: Union[List[int], int]) -> str:
     """
-    iter of ints to SQL string version for main_summary
+    iter of ints to SQL string version for clients_daily
     >>> to_samp_ids([0, 1, 2])
     "'0', '1', '2'"
     """
@@ -113,9 +113,31 @@ def extract_view_hive(
     df.createOrReplaceTempView("cid_day")
 
 
-def extract_view_bigquery():
+def extract_view_bigquery(
+    spark,
+    project_id,
+    dataset_id,
+    start_date,
+    end_date,
+    first_dims: List[str] = [],
+    sample_ids: List[int] = [1],
+):
     """Extracts clients daily data using BigQuery as a data source."""
-    raise NotImplementedError("BigQuery source is not yet supported")
+    df = (
+        spark.read.format("bigquery")
+        .option("table", f"{project_id}.{dataset_id}.clients_daily")
+        # submission_date in BigQuery is a DATE
+        .option("filter", f"submission_date >= date '{start_date}'")
+        .option("filter", f"submission_date < date '{end_date}'")
+        # sample_id in BigQuery is INT64
+        .option("filter", f"sample_id in ({','.join(map(str, sample_ids))})")
+        .load()
+    )
+    df.selectExpr(
+        "client_id",
+        "date_format(submission_date, 'yyyy-MM-dd') as submission_date",
+        "cast(sample_id as string) as sample_id",
+    ).createOrReplaceTempView("cid_day")
 
 
 base_query = """
@@ -206,6 +228,9 @@ def run_rec_freq_spk(
     first_dims: List[str] = [],
     ho_start="2018-08-01",
     ho_days_in_future=None,
+    source="hive",
+    project_id=None,
+    dataset_id=None,
 ):
     """
     holdout: whether to pull # of returns in holdout period. Useful
@@ -217,13 +242,27 @@ def run_rec_freq_spk(
         ho_start = dt.date.today() + dt.timedelta(days=ho_days_in_future)
     r = mk_time_params(ho_win=ho_win, model_win=model_win, ho_start=ho_start)
 
-    extract_view_hive(
-        spark,
-        r.window_start_date_nodash,
-        r.window_last_date_nodash,
-        first_dims,
-        sample_ids,
-    )
+    if source == "bigquery" and project_id and dataset_id:
+        extract_view_bigquery(
+            spark,
+            project_id,
+            dataset_id,
+            r.window_start_date_nodash,
+            r.window_last_date_nodash,
+            first_dims,
+            sample_ids,
+        )
+    elif source == "hive":
+        extract_view_hive(
+            spark,
+            r.window_start_date_nodash,
+            r.window_last_date_nodash,
+            first_dims,
+            sample_ids,
+        )
+    else:
+        raise ValueError(f"invalid source specified: {source}")
+
     r.q = mk_rec_freq_q(
         q=rfn_base_query,
         holdout=holdout,

@@ -22,6 +22,9 @@ def extract(
     samp_fraction=0.1,
     sample_ids=[0],
     check_min_users=50000,
+    source="hive",
+    project_id=None,
+    dataset_id=None,
 ) -> Tuple[pd.DataFrame, int]:
     """
     check_min_users: minimum number of users that should be pulled
@@ -34,6 +37,9 @@ def extract(
         spark=spark,
         holdout=True,
         ho_win=ho_win,
+        source=source,
+        project_id=project_id,
+        dataset_id=dataset_id,
     )
     df = dfs_all.sample(fraction=samp_fraction)
     user_col = "n_custs"
@@ -94,6 +100,9 @@ def save(submission_date, bucket, prefix, params_df, bucket_protocol="s3"):
 @click.option(
     "--bucket-protocol", type=click.Choice(["gs", "s3", "file"]), default="s3"
 )
+@click.option("--source", type=click.Choice(["bigquery", "hive"]), default="hive")
+@click.option("--project-id", type=str, default="moz-fx-data-shared-prod")
+@click.option("--dataset-id", type=str, default="telemetry")
 def main(
     submission_date,
     model_win,
@@ -105,6 +114,9 @@ def main(
     bucket,
     prefix,
     bucket_protocol,
+    source,
+    project_id,
+    dataset_id,
 ):
     print(f"Running param fitting. bgbb_airflow version {bgbb_airflow.__version__}")
     spark = SparkSession.builder.getOrCreate()
@@ -118,6 +130,9 @@ def main(
         samp_fraction=sample_fraction,
         sample_ids=sample_ids,
         check_min_users=check_min_users,
+        source=source,
+        project_id=project_id,
+        dataset_id=dataset_id,
     )
     df2 = transform(df, spark, penalizer_coef=penalizer_coef, start_params=start_params)
     save(submission_date, bucket, prefix, df2, bucket_protocol)
