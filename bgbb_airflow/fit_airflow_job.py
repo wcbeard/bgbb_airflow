@@ -4,14 +4,15 @@ import click
 import pandas as pd
 from pyspark.sql import SparkSession
 
+import bgbb_airflow
 from bgbb import BGBB
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
 from bgbb_airflow.sql_utils import (
     S3_DAY_FMT_DASH,
+    BigQueryParameters,
     reduce_rec_freq_spk,
     run_rec_freq_spk,
 )
-import bgbb_airflow
 
 
 def extract(
@@ -23,8 +24,7 @@ def extract(
     sample_ids=[0],
     check_min_users=50000,
     source="hive",
-    project_id=None,
-    dataset_id=None,
+    bigquery_parameters=None,
 ) -> Tuple[pd.DataFrame, int]:
     """
     check_min_users: minimum number of users that should be pulled
@@ -38,8 +38,7 @@ def extract(
         holdout=True,
         ho_win=ho_win,
         source=source,
-        project_id=project_id,
-        dataset_id=dataset_id,
+        bigquery_parameters=bigquery_parameters,
     )
     df = dfs_all.sample(fraction=samp_fraction)
     user_col = "n_custs"
@@ -124,13 +123,6 @@ def main(
 ):
     print(f"Running param fitting. bgbb_airflow version {bgbb_airflow.__version__}")
     spark = SparkSession.builder.getOrCreate()
-    if source == "bigquery":
-        if not (view_materialization_dataset and view_materialization_project):
-            raise ValueError(
-                "The project and dataset for materializing the clients_daily view must be set."
-            )
-        spark.conf.set("viewMaterializationProject", view_materialization_project)
-        spark.conf.set("viewMaterializationDataset", view_materialization_dataset)
     ho_start = pd.to_datetime(submission_date).strftime(S3_DAY_FMT_DASH)
 
     df, _ = extract(
@@ -142,8 +134,12 @@ def main(
         sample_ids=sample_ids,
         check_min_users=check_min_users,
         source=source,
-        project_id=project_id,
-        dataset_id=dataset_id,
+        bigquery_parameters=BigQueryParameters(
+            project_id,
+            dataset_id,
+            view_materialization_project,
+            view_materialization_dataset,
+        ),
     )
     df2 = transform(df, spark, penalizer_coef=penalizer_coef, start_params=start_params)
     save(submission_date, bucket, prefix, df2, bucket_protocol)

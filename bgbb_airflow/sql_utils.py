@@ -1,4 +1,5 @@
 import datetime as dt
+from collections import namedtuple
 from typing import List, Union
 
 import pandas as pd
@@ -6,6 +7,17 @@ import pandas as pd
 
 S3_DAY_FMT = "%Y%m%d"
 S3_DAY_FMT_DASH = "%Y-%m-%d"
+
+
+BigQueryParameters = namedtuple(
+    "BigQueryParameters",
+    [
+        "project_id",
+        "dataset_id",
+        "view_materialization_project_id",
+        "view_materialization_dataset_id",
+    ],
+)
 
 
 def to_s3_fmt(date):
@@ -115,8 +127,7 @@ def extract_view_hive(
 
 def extract_view_bigquery(
     spark,
-    project_id,
-    dataset_id,
+    parameters,
     start_date,
     end_date,
     first_dims: List[str] = [],
@@ -230,8 +241,7 @@ def run_rec_freq_spk(
     ho_start="2018-08-01",
     ho_days_in_future=None,
     source="hive",
-    project_id=None,
-    dataset_id=None,
+    bigquery_parameters=None,
 ):
     """
     holdout: whether to pull # of returns in holdout period. Useful
@@ -243,11 +253,10 @@ def run_rec_freq_spk(
         ho_start = dt.date.today() + dt.timedelta(days=ho_days_in_future)
     r = mk_time_params(ho_win=ho_win, model_win=model_win, ho_start=ho_start)
 
-    if source == "bigquery" and project_id and dataset_id:
+    if source == "bigquery" and all(bigquery_parameters._asdict().values()):
         extract_view_bigquery(
             spark,
-            project_id,
-            dataset_id,
+            bigquery_parameters,
             r.window_start_date_nodash,
             r.window_last_date_nodash,
             first_dims,

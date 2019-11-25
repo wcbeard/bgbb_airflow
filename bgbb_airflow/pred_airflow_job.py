@@ -6,11 +6,11 @@ import click
 import pandas as pd
 from pyspark.sql import SparkSession
 
-from bgbb import BGBB
-from bgbb.sql.bgbb_udfs import add_p_th, mk_n_returns_udf, mk_p_alive_udf, add_mau
-from bgbb_airflow.bgbb_utils import PythonLiteralOption
-from bgbb_airflow.sql_utils import S3_DAY_FMT_DASH, run_rec_freq_spk
 import bgbb_airflow
+from bgbb import BGBB
+from bgbb.sql.bgbb_udfs import add_mau, add_p_th, mk_n_returns_udf, mk_p_alive_udf
+from bgbb_airflow.bgbb_utils import PythonLiteralOption
+from bgbb_airflow.sql_utils import S3_DAY_FMT_DASH, BigQueryParameters, run_rec_freq_spk
 
 pd.options.display.max_columns = 40
 pd.options.display.width = 120
@@ -46,8 +46,7 @@ def extract(
     first_dims=first_dims,
     bucket_protocol="s3",
     source="hive",
-    project_id=None,
-    dataset_id=None,
+    bigquery_parameters=None,
 ):
     "TODO: increase ho_win to evaluate model performance"
 
@@ -64,8 +63,7 @@ def extract(
         spark=spark,
         first_dims=first_dims,
         source=source,
-        project_id=project_id,
-        dataset_id=dataset_id,
+        bigquery_parameters=bigquery_parameters,
     )
 
     # Hopefully not too far off from something like
@@ -175,13 +173,6 @@ def main(
     view_materialization_dataset,
 ):
     spark = SparkSession.builder.getOrCreate()
-    if source == "bigquery":
-        if not (view_materialization_dataset and view_materialization_project):
-            raise ValueError(
-                "The project and dataset for materializing the clients_daily view must be set."
-            )
-        spark.conf.set("viewMaterializationProject", view_materialization_project)
-        spark.conf.set("viewMaterializationDataset", view_materialization_dataset)
     print(
         f"Generating predictions with bgbb_airflow version {bgbb_airflow.__version__}"
     )
@@ -195,8 +186,12 @@ def main(
         sample_ids=sample_ids,
         bucket_protocol=bucket_protocol,
         source=source,
-        project_id=project_id,
-        dataset_id=dataset_id,
+        bigquery_parameters=BigQueryParameters(
+            project_id,
+            dataset_id,
+            view_materialization_project,
+            view_materialization_dataset,
+        ),
     )
     df2 = transform(df, abgd_params, return_preds=[7, 14, 21, 28])
     save(
