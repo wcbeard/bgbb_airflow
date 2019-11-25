@@ -63,7 +63,7 @@ def run_submit(args):
             "python_file": f"dbfs:/FileStore/airflow/{args.module_name}_runner.py",
             "parameters": args.command,
         },
-        "libraries": {"pypi": {"package": "git+{args.git_path}@{args.git_branch}"}},
+        "libraries": {"pypi": {"package": f"git+{args.git_path}@{args.git_branch}"}},
     }
 
     logging.debug(json.dumps(config, indent=2))
