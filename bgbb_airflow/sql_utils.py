@@ -126,6 +126,7 @@ def extract_view_bigquery(
     df = (
         spark.read.format("bigquery")
         .option("table", f"{project_id}.{dataset_id}.clients_daily")
+        .option("viewsEnabled", "true")
         # submission_date in BigQuery is a DATE
         .option("filter", f"submission_date >= date '{start_date}'")
         .option("filter", f"submission_date < date '{end_date}'")
