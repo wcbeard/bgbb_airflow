@@ -103,6 +103,8 @@ def save(submission_date, bucket, prefix, params_df, bucket_protocol="s3"):
 @click.option("--source", type=click.Choice(["bigquery", "hive"]), default="hive")
 @click.option("--project-id", type=str, default="moz-fx-data-shared-prod")
 @click.option("--dataset-id", type=str, default="telemetry")
+@click.option("--view-materialization-project", type=str)
+@click.option("--view-materialization-dataset", type=str)
 def main(
     submission_date,
     model_win,
@@ -117,9 +119,18 @@ def main(
     source,
     project_id,
     dataset_id,
+    view_materialization_project,
+    view_materialization_dataset,
 ):
     print(f"Running param fitting. bgbb_airflow version {bgbb_airflow.__version__}")
     spark = SparkSession.builder.getOrCreate()
+    if source == "bigquery":
+        if not (view_materialization_dataset and view_materialization_project):
+            raise ValueError(
+                "The project and dataset for materializing the clients_daily view must be set."
+            )
+        spark.conf.set("viewMaterializationProject", view_materialization_project)
+        spark.conf.set("viewMaterializationDataset", view_materialization_dataset)
     ho_start = pd.to_datetime(submission_date).strftime(S3_DAY_FMT_DASH)
 
     df, _ = extract(

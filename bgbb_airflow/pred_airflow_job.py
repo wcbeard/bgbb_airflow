@@ -157,6 +157,8 @@ def save(spark, submission_date, pred_bucket, pred_prefix, df, bucket_protocol="
 @click.option("--source", type=click.Choice(["bigquery", "hive"]), default="hive")
 @click.option("--project-id", type=str, default="moz-fx-data-shared-prod")
 @click.option("--dataset-id", type=str, default="telemetry")
+@click.option("--view-materialization-project", type=str)
+@click.option("--view-materialization-dataset", type=str)
 def main(
     submission_date,
     model_win,
@@ -169,8 +171,17 @@ def main(
     source,
     project_id,
     dataset_id,
+    view_materialization_project,
+    view_materialization_dataset,
 ):
     spark = SparkSession.builder.getOrCreate()
+    if source == "bigquery":
+        if not (view_materialization_dataset and view_materialization_project):
+            raise ValueError(
+                "The project and dataset for materializing the clients_daily view must be set."
+            )
+        spark.conf.set("viewMaterializationProject", view_materialization_project)
+        spark.conf.set("viewMaterializationDataset", view_materialization_dataset)
     print(
         f"Generating predictions with bgbb_airflow version {bgbb_airflow.__version__}"
     )
