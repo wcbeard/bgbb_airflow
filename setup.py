@@ -45,6 +45,7 @@ setup(
         "pyspark==2.4.4",
         "pytest",
         "six",
+        "google-cloud-bigquery",
     ],
     tests_require=test_deps,
     extras_require=extras,

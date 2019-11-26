@@ -3,7 +3,7 @@ from collections import namedtuple
 from typing import List, Union
 
 import pandas as pd
-
+from google.cloud import bigquery
 
 S3_DAY_FMT = "%Y%m%d"
 S3_DAY_FMT_DASH = "%Y-%m-%d"
@@ -134,22 +134,54 @@ def extract_view_bigquery(
     sample_ids: List[int] = [1],
 ):
     """Extracts clients daily data using BigQuery as a data source."""
+    first_dims_agg = "".join(", " + dim for dim in first_dims)
+    sample_ids = ", ".join(map(str, sample_ids))
+    sample_comment = "" if sample_ids else "--"
+
+    query = f"""
+    SELECT
+        client_id
+        , submission_date
+        , sample_id
+        {first_dims_agg}
+    FROM
+        `{parameters.project_id}.{parameters.dataset_id}.clients_daily`
+    WHERE
+        app_name = 'Firefox'
+        AND channel = 'release'
+        AND submission_date >= '{start_date}'
+        AND submission_date < '{end_date}'
+        {sample_comment}  AND sample_id in ({sample_ids})
+    """
+    dataset_id = parameters.view_materialization_dataset_id
+    table_id = f"bgbb_clients_day_{start_date}_{end_date}".replace("-", "")
+
+    # https://googleapis.dev/python/bigquery/latest/usage/queries.html
+    client = bigquery.Client(project=parameters.view_materialization_project_id)
+    job_config = bigquery.QueryJobConfig()
+    table_ref = client.dataset(dataset_id).table(table_id)
+    job_config.destination = table_ref
+    job_config.write_disposition = bigquery.job.WriteDisposition.WRITE_TRUNCATE
+
+    # run the query with a destination table
+    print(f"storing results of query into {dataset_id}.{table_id}...")
+    client.query(query, job_config=job_config).result()
+
+    # set expiration for the new table to be 1 day
+    expiration = dt.datetime.utcnow() + dt.timedelta(hours=4)
+    table = client.get_table(table_ref)
+    table.expires = expiration
+    table = client.update_table(table, ["expires"])
+
     df = (
         spark.read.format("bigquery")
-        .option("table", f"{project_id}.{dataset_id}.clients_daily")
-        .option("viewsEnabled", "true")
-        # submission_date in BigQuery is a DATE
-        .option("filter", f"submission_date >= date '{start_date}'")
-        .option("filter", f"submission_date < date '{end_date}'")
-        # sample_id in BigQuery is INT64
-        .option("filter", f"sample_id in ({','.join(map(str, sample_ids))})")
+        .option(
+            "table",
+            f"{parameters.view_materialization_project_id}.{dataset_id}.{table_id}",
+        )
         .load()
     )
-    df.selectExpr(
-        "client_id",
-        "date_format(submission_date, 'yyyy-MM-dd') as submission_date",
-        "cast(sample_id as string) as sample_id",
-    ).createOrReplaceTempView("cid_day")
+    df.createOrReplaceTempView("cid_day")
 
 
 base_query = """
@@ -257,8 +289,8 @@ def run_rec_freq_spk(
         extract_view_bigquery(
             spark,
             bigquery_parameters,
-            r.window_start_date_nodash,
-            r.window_last_date_nodash,
+            r.model_start_date,
+            r.ho_last_date,
             first_dims,
             sample_ids,
         )
