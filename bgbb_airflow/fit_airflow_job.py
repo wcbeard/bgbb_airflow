@@ -4,13 +4,15 @@ import click
 import pandas as pd
 from pyspark.sql import SparkSession
 
+import bgbb_airflow
 from bgbb import BGBB
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
-from bgbb_airflow.sql_utils import (S3_DAY_FMT_DASH, reduce_rec_freq_spk,
-                                    run_rec_freq_spk)
-import bgbb_airflow
-
-default_param_prefix = "wbeard/bgbb_params"
+from bgbb_airflow.sql_utils import (
+    S3_DAY_FMT_DASH,
+    BigQueryParameters,
+    reduce_rec_freq_spk,
+    run_rec_freq_spk,
+)
 
 
 def extract(
@@ -21,6 +23,8 @@ def extract(
     samp_fraction=0.1,
     sample_ids=[0],
     check_min_users=50000,
+    source="hive",
+    bigquery_parameters=None,
 ) -> Tuple[pd.DataFrame, int]:
     """
     check_min_users: minimum number of users that should be pulled
@@ -33,6 +37,8 @@ def extract(
         spark=spark,
         holdout=True,
         ho_win=ho_win,
+        source=source,
+        bigquery_parameters=bigquery_parameters,
     )
     df = dfs_all.sample(fraction=samp_fraction)
     user_col = "n_custs"
@@ -67,9 +73,9 @@ def transform(
     return params_df
 
 
-def save(submission_date, bucket, prefix, params_df):
-    path = "s3://{}/{}/submission_date_s3={}".format(bucket, prefix, submission_date)
-    print("Saving to: {}".format(path))
+def save(submission_date, bucket, prefix, params_df, bucket_protocol="s3"):
+    path = f"{bucket_protocol}://{bucket}/{prefix}/submission_date_s3={submission_date}"
+    print(f"Saving to: {path}")
     (params_df.repartition(1).write.parquet(path, mode="overwrite"))
 
 
@@ -86,26 +92,36 @@ def save(submission_date, bucket, prefix, params_df):
     help="List of integer sample ids or None",
 )
 @click.option("--sample-fraction", type=float, default=0.1)
+@click.option("--check-min-users", type=int, default=50000)
 @click.option("--penalizer-coef", type=float, default=0.01)
+@click.option("--bucket", type=str, default="telemetry-test-bucket")
+@click.option("--prefix", type=str, default="bgbb/params/v1")
 @click.option(
-    "--bucket", type=str, default="net-mozaws-prod-us-west-2-pipeline-analysis"
+    "--bucket-protocol", type=click.Choice(["gs", "s3", "file"]), default="s3"
 )
-@click.option("--prefix", type=str, default=default_param_prefix)
+@click.option("--source", type=click.Choice(["bigquery", "hive"]), default="hive")
+@click.option("--project-id", type=str, default="moz-fx-data-shared-prod")
+@click.option("--dataset-id", type=str, default="telemetry")
+@click.option("--view-materialization-project", type=str)
+@click.option("--view-materialization-dataset", type=str)
 def main(
     submission_date,
     model_win,
     start_params,
     sample_ids,
     sample_fraction,
+    check_min_users,
     penalizer_coef,
     bucket,
     prefix,
+    bucket_protocol,
+    source,
+    project_id,
+    dataset_id,
+    view_materialization_project,
+    view_materialization_dataset,
 ):
-    print(
-        "Running param fitting. bgbb_airflow version {}".format(
-            bgbb_airflow.__version__
-        )
-    )
+    print(f"Running param fitting. bgbb_airflow version {bgbb_airflow.__version__}")
     spark = SparkSession.builder.getOrCreate()
     ho_start = pd.to_datetime(submission_date).strftime(S3_DAY_FMT_DASH)
 
@@ -116,8 +132,15 @@ def main(
         model_win=model_win,
         samp_fraction=sample_fraction,
         sample_ids=sample_ids,
-        check_min_users=50000,
+        check_min_users=check_min_users,
+        source=source,
+        bigquery_parameters=BigQueryParameters(
+            project_id,
+            dataset_id,
+            view_materialization_project,
+            view_materialization_dataset,
+        ),
     )
     df2 = transform(df, spark, penalizer_coef=penalizer_coef, start_params=start_params)
-    save(submission_date, bucket, prefix, df2)
+    save(submission_date, bucket, prefix, df2, bucket_protocol)
     print("Learning Success!")
