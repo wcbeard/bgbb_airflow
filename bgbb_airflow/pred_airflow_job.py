@@ -6,27 +6,25 @@ import click
 import pandas as pd
 from pyspark.sql import SparkSession
 
+import bgbb_airflow
 from bgbb import BGBB
-from bgbb.sql.bgbb_udfs import add_p_th, mk_n_returns_udf, mk_p_alive_udf, add_mau
+from bgbb.sql.bgbb_udfs import add_mau, add_p_th, mk_n_returns_udf, mk_p_alive_udf
 from bgbb_airflow.bgbb_utils import PythonLiteralOption
-from bgbb_airflow.sql_utils import S3_DAY_FMT_DASH, run_rec_freq_spk
+from bgbb_airflow.sql_utils import S3_DAY_FMT_DASH, BigQueryParameters, run_rec_freq_spk
 
 pd.options.display.max_columns = 40
 pd.options.display.width = 120
 Dash_str = str
 
-default_pred_bucket = "net-mozaws-prod-us-west-2-pipeline-analysis"
-default_pred_prefix = "wbeard/active_profiles"
-default_param_bucket = default_pred_bucket
-default_param_prefix = "wbeard/bgbb_params"
-
 first_dims = ["locale", "normalized_channel", "os", "normalized_os_version", "country"]
 
 
-def pull_most_recent_params(spark, max_sub_date: Dash_str, param_bucket, param_prefix):
+def pull_most_recent_params(
+    spark, max_sub_date: Dash_str, param_bucket, param_prefix, bucket_protocol="s3"
+):
     "@max_sub_date: Maximum params date to pull; dashed format yyyy-MM-dd"
-    pars_loc = "s3://" + join(param_bucket, param_prefix)
-    print("Reading params from {}".format(pars_loc))
+    pars_loc = f"{bucket_protocol}://" + join(param_bucket, param_prefix)
+    print(f"Reading params from {pars_loc}")
     spars = spark.read.parquet(pars_loc)
     pars_df = (
         spars.filter(spars.submission_date_s3 <= max_sub_date)
@@ -34,7 +32,7 @@ def pull_most_recent_params(spark, max_sub_date: Dash_str, param_bucket, param_p
         .limit(1)
         .toPandas()
     )
-    print("Using params: \n{}".format(pars_df))
+    print(f"Using params: \n{pars_df}")
     return pars_df
 
 
@@ -46,6 +44,9 @@ def extract(
     model_win=90,
     sample_ids: Union[Tuple, List[int]] = (),
     first_dims=first_dims,
+    bucket_protocol="s3",
+    source="hive",
+    bigquery_parameters=None,
 ):
     "TODO: increase ho_win to evaluate model performance"
 
@@ -61,6 +62,8 @@ def extract(
         sample_ids=list(sample_ids),
         spark=spark,
         first_dims=first_dims,
+        source=source,
+        bigquery_parameters=bigquery_parameters,
     )
 
     # Hopefully not too far off from something like
@@ -70,6 +73,7 @@ def extract(
         max_sub_date=sub_date,
         param_bucket=param_bucket,
         param_prefix=param_prefix,
+        bucket_protocol=bucket_protocol,
     )
     abgd_params = pars_df[["alpha", "beta", "gamma", "delta"]].iloc[0].tolist()
     return df, abgd_params
@@ -121,11 +125,11 @@ def transform(df, bgbb_params, return_preds=(14,)):
     return df2
 
 
-def save(spark, submission_date, pred_bucket, pred_prefix, df):
-    path = "s3://" + join(
-        pred_bucket, pred_prefix, "submission_date_s3={}".format(submission_date)
+def save(spark, submission_date, pred_bucket, pred_prefix, df, bucket_protocol="s3"):
+    path = f"{bucket_protocol}://" + join(
+        pred_bucket, pred_prefix, f"submission_date_s3={submission_date}"
     )
-    print("Saving to {}...".format(path))
+    print(f"Saving to {path}...")
     (df.write.partitionBy("sample_id").parquet(path, mode="overwrite"))
     print("Done writing")
     df_out = spark.read.parquet(path).limit(5).toPandas()
@@ -141,10 +145,18 @@ def save(spark, submission_date, pred_bucket, pred_prefix, df):
     default="[]",
     help="List of integer sample ids or None",
 )
-@click.option("--pred-bucket", type=str, default=default_pred_bucket)
-@click.option("--pred-prefix", type=str, default=default_pred_prefix)
-@click.option("--param-bucket", type=str, default=default_param_bucket)
-@click.option("--param-prefix", type=str, default=default_param_prefix)
+@click.option("--pred-bucket", type=str, default="telemetry-test-bucket")
+@click.option("--pred-prefix", type=str, default="bgbb/active_profiles/v1")
+@click.option("--param-bucket", type=str, default="telemetry-test-bucket")
+@click.option("--param-prefix", type=str, default="bgbb/params/v1")
+@click.option(
+    "--bucket-protocol", type=click.Choice(["gs", "s3", "file"]), default="s3"
+)
+@click.option("--source", type=click.Choice(["bigquery", "hive"]), default="hive")
+@click.option("--project-id", type=str, default="moz-fx-data-shared-prod")
+@click.option("--dataset-id", type=str, default="telemetry")
+@click.option("--view-materialization-project", type=str)
+@click.option("--view-materialization-dataset", type=str)
 def main(
     submission_date,
     model_win,
@@ -153,12 +165,16 @@ def main(
     pred_prefix,
     param_bucket,
     param_prefix,
+    bucket_protocol,
+    source,
+    project_id,
+    dataset_id,
+    view_materialization_project,
+    view_materialization_dataset,
 ):
     spark = SparkSession.builder.getOrCreate()
     print(
-        "Generating predictions with bgbb_airflow version {}".format(
-            bgbb_airflow.__version__
-        )
+        f"Generating predictions with bgbb_airflow version {bgbb_airflow.__version__}"
     )
 
     df, abgd_params = extract(
@@ -168,9 +184,22 @@ def main(
         param_prefix=param_prefix,
         model_win=model_win,
         sample_ids=sample_ids,
+        bucket_protocol=bucket_protocol,
+        source=source,
+        bigquery_parameters=BigQueryParameters(
+            project_id,
+            dataset_id,
+            view_materialization_project,
+            view_materialization_dataset,
+        ),
     )
     df2 = transform(df, abgd_params, return_preds=[7, 14, 21, 28])
     save(
-        spark, submission_date, pred_bucket=pred_bucket, pred_prefix=pred_prefix, df=df2
+        spark,
+        submission_date,
+        pred_bucket=pred_bucket,
+        pred_prefix=pred_prefix,
+        df=df2,
+        bucket_protocol=bucket_protocol,
     )
     print("Success!")

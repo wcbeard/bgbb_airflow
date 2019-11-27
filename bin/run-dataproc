@@ -1,0 +1,80 @@
+#!/bin/bash
+
+# A testing script for verifying bgbb_airflow jobs. This is derived from [0]. To
+# run this script, make sure that your project has access to read from the
+# appropriate dataset and has read/write permissions to the specified buckets.
+# [0]: https://github.com/mozilla/python_mozaggregator/blob/master/bin/dataproc.sh
+set -e
+
+REGION=us-west1
+NUM_WORKERS=${NUM_WORKERS:-1}
+GIT_PATH=${GIT_PATH:-https://github.com/wcbeard/bgbb_airflow}
+GIT_BRANCH=${GIT_BRANCH:-master}
+
+
+function bootstrap() {
+    local bucket=$1
+
+    # create the initialization script and runner
+    mkdir -p bootstrap
+    cd bootstrap
+    echo "from bgbb_airflow import cli; cli.entry_point()" > runner.py
+    cd ..
+    gsutil cp bootstrap/* "gs://${bucket}/bootstrap/"
+}
+
+
+function delete_cluster() {
+    local cluster_id=$1
+    gcloud dataproc clusters delete ${cluster_id} --region=${REGION}
+}
+
+
+function create_cluster() {
+    local cluster_id=$1
+    local bucket=$2
+
+    function cleanup {
+        delete_cluster ${cluster_id}
+    }
+    trap cleanup EXIT
+
+    gcloud beta dataproc clusters create ${cluster_id} \
+        --image-version 1.4 \
+        --enable-component-gateway \
+        --worker-machine-type=n1-standard-8 \
+        --num-preemptible-workers ${NUM_WORKERS} \
+        --properties ^#^spark:spark.jars=gs://spark-lib/bigquery/spark-bigquery-latest.jar#spark:spark.python.profile=true \
+        --metadata "PIP_PACKAGES=git+${GIT_PATH}@${GIT_BRANCH}" \
+        --initialization-actions gs://dataproc-initialization-actions/python/pip-install.sh \
+        --region=${REGION} \
+        --max-idle 10m
+}
+
+
+function submit() {
+    cluster_id=$1
+    bucket=$2
+    # pass the rest of the parameters from the main function
+    shift 2
+    gcloud dataproc jobs submit pyspark \
+        gs://${bucket}/bootstrap/runner.py \
+        --cluster ${cluster_id} \
+        --region ${REGION} \
+        -- "$@"
+}
+
+
+function main() {
+    cd "$(dirname "$0")/.."
+    bucket=$(gcloud config get-value project)
+    cluster_id="test-bgbb-${RANDOM}"
+    bootstrap $bucket
+    create_cluster $cluster_id $bucket
+    submit $cluster_id $bucket "$@"
+}
+
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi
