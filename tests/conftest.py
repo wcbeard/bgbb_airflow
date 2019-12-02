@@ -10,6 +10,7 @@ from pytest import fixture
 @fixture
 def spark():
     spark = pyspark.sql.SparkSession.builder.appName("test").getOrCreate()
+    spark.conf.set("spark.sql.execution.arrow.enabled", "true")
     yield spark
     spark.stop()
 
