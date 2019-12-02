@@ -173,6 +173,7 @@ def main(
     view_materialization_dataset,
 ):
     spark = SparkSession.builder.getOrCreate()
+    spark.conf.set("spark.sql.execution.arrow.enabled", "true")
     print(
         f"Generating predictions with bgbb_airflow version {bgbb_airflow.__version__}"
     )

@@ -123,6 +123,7 @@ def main(
 ):
     print(f"Running param fitting. bgbb_airflow version {bgbb_airflow.__version__}")
     spark = SparkSession.builder.getOrCreate()
+    spark.conf.set("spark.sql.execution.arrow.enabled", "true")
     ho_start = pd.to_datetime(submission_date).strftime(S3_DAY_FMT_DASH)
 
     df, _ = extract(
