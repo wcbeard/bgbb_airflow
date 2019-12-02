@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple, Union
 
 import click
 import pandas as pd
-from pyspark.sql import SparkSession
+from pyspark.sql import SparkSession, functions as F
 
 import bgbb_airflow
 from bgbb import BGBB
@@ -30,6 +30,7 @@ def pull_most_recent_params(
         spars.filter(spars.submission_date_s3 <= max_sub_date)
         .orderBy(spars.submission_date_s3.desc())
         .limit(1)
+        .withColumn("submission_date_s3", F.col("submission_date_s3").cast("timestamp"))
         .toPandas()
     )
     print(f"Using params: \n{pars_df}")
