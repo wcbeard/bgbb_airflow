@@ -141,7 +141,7 @@ def extract_view_bigquery(
     query = f"""
     SELECT
         client_id
-        , submission_date
+        , CAST(submission_date as STRING) as submission_date
         , sample_id
         {first_dims_agg}
     FROM
