@@ -42,7 +42,7 @@ setup(
         "click",
         "pandas==0.24",
         "pyarrow==0.14.1",
-        "pyspark==2.4.4",
+        "pyspark==3.2.2",
         "pytest",
         "six",
         "google-cloud-bigquery",
