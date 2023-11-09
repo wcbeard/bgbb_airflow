@@ -41,7 +41,7 @@ setup(
         "numba>=0.34",
         "click",
         "pandas==0.24",
-        "pyarrow==0.14.1",
+        "pyarrow==14.0.1",
         "pyspark==2.4.4",
         "pytest",
         "six",
